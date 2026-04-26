@@ -1,0 +1,1880 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DigAI — {{CLIENTE}} | {{PERIODO}}</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://api.fontshare.com/v2/css?f[]=switzer@600,700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+  <style>
+    /* ── Design Tokens v3 (DASHBOARD_V3_SPEC) ───────────────────────────────── */
+    :root {
+      /* Semântica */
+      --color-com-digai:    #2563EB;
+      --color-sem-digai:    #94A3B8;
+      --color-ganho:        #166534;
+      --color-ganho-bg:     #DCFCE7;
+      --color-atencao:      #C2410C;
+      --color-atencao-bg:   #FFEDD5;
+      --color-neutro:       #64748B;
+      /* Background */
+      --color-bg-primary:   #0F172A;
+      --color-bg-secondary: #1E293B;
+      --color-bg-card:      #1E293B;
+      --color-sidebar:      #0D1B3E;
+      /* Texto */
+      --color-text-primary:   #F1F5F9;
+      --color-text-secondary: #CBD5E1;
+      --color-text-tertiary:  #94A3B8;
+      /* Bordas */
+      --color-border: #334155;
+      /* Aliases legado (visual DigAI) */
+      --teal:       #00caf3;
+      --teal-light: #00e6b8;
+      --success:    #20BD5A;
+      --bg:         #06101f;
+      --bg-card:    #1E293B;
+      --bg-card2:   #112240;
+      --text:       #F1F5F9;
+      --text-muted: #94A3B8;
+      --border:     rgba(51,65,85,0.9);
+      --radius:     10px;
+      --shadow:     0 4px 24px rgba(0,0,0,0.4);
+      /* Tipografia */
+      --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
+      --font-size-headline: 32px;
+      --font-size-large:    24px;
+      --font-size-medium:   18px;
+      /* Espaçamento */
+      --space-md:  16px;
+      --space-lg:  24px;
+      --space-xl:  32px;
+      --space-2xl: 48px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg,#081b49 0%,#0034ab 45%,#00caf3 80%,#001c5d 100%);
+      padding: 0 2rem;
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+      height: 68px; position: sticky; top: 0; z-index: 100;
+      border-bottom: 1px solid rgba(0,202,243,0.25);
+    }
+    .header-left { display: flex; align-items: center; gap: 1.5rem; }
+    .logo { font-family: 'Switzer', var(--font-sans); font-weight: 700; font-size: 1.4rem; color: #fff; letter-spacing: -0.5px; }
+    .logo span { color: var(--teal); }
+    .header-meta { display: flex; flex-direction: column; border-left: 1px solid rgba(255,255,255,0.2); padding-left: 1.5rem; }
+    .header-meta .cliente { font-weight: 700; font-size: 0.95rem; color: #fff; }
+    .header-meta .periodo { font-size: 0.75rem; color: rgba(255,255,255,0.6); }
+    .header-meta .gerado  { font-size: 0.7rem;  color: rgba(255,255,255,0.4); }
+    .btn-download {
+      display: flex; align-items: center; gap: 0.5rem;
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25);
+      color: #fff; font-family: var(--font-sans); font-weight: 600; font-size: 0.85rem;
+      padding: 0.5rem 1.2rem; border-radius: 6px; cursor: pointer;
+      backdrop-filter: blur(8px); transition: background 0.2s, border-color 0.2s;
+    }
+    .btn-download:hover { background: rgba(0,202,243,0.2); border-color: var(--teal); }
+
+    /* ── Layout ── */
+    .main { max-width: 1400px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
+    .section-block { margin-bottom: var(--space-2xl); }
+
+    /* ── Pergunta + Título ── */
+    .section-question { font-size: 0.85rem; font-style: italic; color: var(--color-text-tertiary); margin-bottom: 0.2rem; }
+    .section-title {
+      font-family: 'Switzer', var(--font-sans); font-weight: 700; font-size: 0.7rem;
+      letter-spacing: 2px; text-transform: uppercase; color: var(--teal);
+      margin-bottom: var(--space-md); display: flex; align-items: center; gap: 0.5rem;
+    }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── Card base ── */
+    .card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: var(--space-xl);
+    }
+    .card-title { font-family: 'Switzer', var(--font-sans); font-weight: 700; font-size: 0.9rem; color: #fff; margin-bottom: var(--space-md); }
+
+    /* ── Empty State ── */
+    .empty-state { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 2.5rem; text-align: center; }
+    .empty-state-icon  { font-size: 2rem; margin-bottom: 0.75rem; opacity: 0.35; }
+    .empty-state-title { font-weight: 600; font-size: 0.9rem; color: var(--color-text-secondary); margin-bottom: 0.4rem; }
+    .empty-state-desc  { font-size: 0.82rem; color: var(--text-muted); max-width: 420px; margin: 0 auto; }
+
+    /* ── Block 2: Impacto ── */
+    .impacto-card {
+      background: linear-gradient(135deg,#0d1d35 0%,#112240 60%,#0d2847 100%);
+      border: 1px solid rgba(0,202,243,0.3); border-radius: var(--radius);
+      padding: 2rem 2.5rem; position: relative; overflow: hidden; animation: fadeUp 0.3s ease both;
+    }
+    .impacto-card::before {
+      content:''; position:absolute; top:0; left:0; right:0; height:3px;
+      background: linear-gradient(90deg,var(--teal),var(--teal-light),var(--success));
+    }
+    .impacto-glow { position:absolute; top:-60px; right:-60px; width:240px; height:240px; background:radial-gradient(circle,rgba(0,202,243,0.12) 0%,transparent 70%); pointer-events:none; }
+    .impacto-headline { font-family:'Switzer',var(--font-sans); font-size:1.5rem; font-weight:700; color:#fff; margin-bottom:0.5rem; line-height:1.3; }
+    .impacto-historia  { font-size:0.88rem; color:var(--text-muted); max-width:800px; margin-bottom:1.5rem; line-height:1.7; }
+    .impacto-bullets   { display:flex; flex-wrap:wrap; gap:0.6rem; }
+    .impacto-pill { background:rgba(0,202,243,0.1); border:1px solid rgba(0,202,243,0.25); border-radius:100px; padding:0.3rem 0.9rem; font-size:0.8rem; font-weight:600; color:var(--teal); }
+    .impacto-pill.success { background:rgba(32,189,90,0.1); border-color:rgba(32,189,90,0.3); color:var(--success); }
+
+    /* ── Block 3: KPI Cards — 3 tiers ── */
+    .kpi-row-large  { display:grid; grid-template-columns:1fr 1fr;           gap:var(--space-md); margin-bottom:var(--space-md); }
+    .kpi-row-medium { display:grid; grid-template-columns:1fr 1fr 1fr;       gap:var(--space-md); margin-bottom:var(--space-md); }
+    .kpi-row-small  { display:grid; grid-template-columns:1fr 1fr;           gap:var(--space-md); }
+
+    .kpi-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); position:relative; overflow:hidden; animation:fadeUp 0.4s ease both; }
+    .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,var(--teal),var(--teal-light)); }
+    .kpi-card.large  { padding:1.75rem 1.5rem; }
+    .kpi-card.medium { padding:1.25rem 1.25rem; }
+    .kpi-card.small  { padding:0.9rem 1.25rem; }
+    .kpi-label { font-size:0.7rem; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem; }
+    .kpi-value { font-family:'Switzer',var(--font-sans); font-weight:700; color:var(--teal); line-height:1; margin-bottom:0.35rem; }
+    .kpi-card.large  .kpi-value { font-size:var(--font-size-headline); }
+    .kpi-card.medium .kpi-value { font-size:var(--font-size-large); }
+    .kpi-card.small  .kpi-value { font-size:var(--font-size-medium); }
+    .kpi-delta { font-size:0.78rem; font-weight:600; margin-bottom:0.2rem; }
+    .kpi-delta.positive { color:var(--success); }
+    .kpi-delta.atencao  { color:var(--color-atencao); }
+    .kpi-delta.neutral  { color:var(--text-muted); }
+    .kpi-sub { font-size:0.7rem; color:var(--text-muted); margin-top:0.25rem; }
+
+    /* ── Block 4: Timeline ── */
+    .timeline-summary { display:grid; grid-template-columns:1fr 1fr; gap:var(--space-md); margin-bottom:var(--space-lg); }
+    .timeline-bar-wrap { background:var(--bg-card2); border-radius:8px; padding:1rem 1.25rem; border:1px solid var(--border); }
+    .timeline-bar-label { font-size:0.78rem; font-weight:600; color:var(--text-muted); margin-bottom:0.5rem; }
+    .timeline-bar-track { background:rgba(255,255,255,0.06); border-radius:4px; height:32px; position:relative; overflow:hidden; }
+    .timeline-bar-fill  { height:100%; border-radius:4px; display:flex; align-items:center; padding:0 0.75rem; transition:width 0.6s ease; }
+    .timeline-bar-fill span { font-size:0.82rem; font-weight:700; color:#fff; white-space:nowrap; }
+    .timeline-bar-sub { font-size:0.72rem; color:var(--text-muted); margin-top:0.4rem; }
+
+    /* ── Block 5: Funnel SVG ── */
+    .funnel-legend { display:flex; gap:1.5rem; justify-content:center; margin-top:1.25rem; }
+    .funnel-legend-item { display:flex; align-items:center; gap:0.4rem; font-size:0.8rem; color:var(--text-muted); }
+    .funnel-legend-dot { width:12px; height:12px; border-radius:2px; }
+
+    /* ── Block 6: Custo ── */
+    .custo-bars { display:flex; flex-direction:column; gap:1.25rem; }
+    .custo-row  { display:flex; flex-direction:column; gap:0.4rem; }
+    .custo-row-label { font-size:0.78rem; font-weight:600; color:var(--text-muted); }
+    .custo-bar-line  { display:flex; align-items:center; gap:0.75rem; }
+    .custo-bar-track { flex:1; background:rgba(255,255,255,0.06); border-radius:4px; height:34px; overflow:hidden; }
+    .custo-bar-fill  { height:100%; border-radius:4px; transition:width 0.6s ease; }
+    .custo-bar-value { font-family:'Switzer',var(--font-sans); font-weight:700; font-size:1rem; white-space:nowrap; min-width:96px; text-align:right; }
+    .custo-diff { font-size:0.82rem; padding:0.4rem 0.9rem; border-radius:6px; background:var(--color-ganho-bg); color:var(--color-ganho); font-weight:700; margin-top:0.5rem; display:inline-block; }
+
+    /* ── Block 7: Score ── */
+    .score-insight { background:var(--bg-card2); border-radius:8px; padding:1.25rem; border-left:3px solid var(--color-com-digai); font-size:0.87rem; color:var(--text-muted); line-height:1.65; margin-bottom:0.75rem; }
+    .score-insight strong { color:var(--text); }
+
+    /* ── Block 7.5: Perfil dos Contratados ── */
+    .perfil-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:var(--space-md); }
+    .perfil-genero-pills { display:flex; flex-direction:column; gap:0.65rem; }
+    .perfil-genero-item  { display:flex; align-items:center; gap:0.65rem; }
+    .perfil-genero-lbl   { font-size:0.78rem; color:var(--text-muted); width:120px; flex-shrink:0; }
+    .perfil-genero-bar   { flex:1; background:rgba(255,255,255,0.05); border-radius:4px; height:24px; overflow:hidden; }
+    .perfil-genero-fill  { height:100%; border-radius:4px; display:flex; align-items:center; padding:0 0.6rem; min-width:28px; }
+    .perfil-genero-fill span { font-size:0.78rem; font-weight:700; color:#fff; white-space:nowrap; }
+    .perfil-genero-n     { font-size:0.72rem; color:var(--text-muted); min-width:26px; text-align:right; }
+    .perfil-hbar-list    { display:flex; flex-direction:column; gap:0.5rem; }
+    .perfil-hbar-item    { display:flex; align-items:center; gap:0.55rem; }
+    .perfil-hbar-lbl     { font-size:0.74rem; color:var(--text-muted); width:120px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; }
+    .perfil-hbar-track   { flex:1; background:rgba(255,255,255,0.05); border-radius:3px; height:20px; overflow:hidden; }
+    .perfil-hbar-fill    { height:100%; border-radius:3px; background:var(--color-com-digai)88; display:flex; align-items:center; padding:0 0.45rem; min-width:18px; }
+    .perfil-hbar-fill span { font-size:0.68rem; font-weight:700; color:#fff; white-space:nowrap; }
+    .perfil-hbar-n       { font-size:0.7rem; color:var(--text-muted); min-width:22px; text-align:right; }
+    .perfil-meta-row     { display:flex; gap:var(--space-md); margin-top:var(--space-md); flex-wrap:wrap; }
+    .perfil-meta-chip    { background:var(--bg-card2); border:1px solid var(--border); border-radius:6px; padding:0.6rem 1rem; flex:1; min-width:140px; }
+    .perfil-meta-chip .kpi-label { margin-bottom:0.2rem; }
+    .perfil-meta-chip .kpi-value { font-size:1.25rem; }
+
+    /* ── Block 8: Vagas table ── */
+    .vagas-table-wrap { overflow-x:auto; border-radius:var(--radius); border:1px solid var(--border); }
+    .vagas-table { width:100%; border-collapse:collapse; font-size:0.83rem; }
+    .vagas-table thead tr { background:#0d1b3e; }
+    .vagas-table thead th { padding:0.75rem 1rem; text-align:left; font-weight:700; font-size:0.72rem; letter-spacing:1px; text-transform:uppercase; color:var(--teal); border-bottom:1px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap; }
+    .vagas-table thead th:hover { color:#fff; }
+    .vagas-table thead th:not(:first-child) { text-align:right; }
+    .vagas-table thead th .si { margin-left:4px; opacity:0.35; font-size:0.65rem; transition:opacity 0.15s; }
+    .vagas-table thead th.sorted .si { opacity:1; }
+    .vagas-table tbody tr { border-bottom:1px solid rgba(255,255,255,0.04); transition:background 0.15s; }
+    .vagas-table tbody tr:hover { background:rgba(37,99,235,0.07); }
+    .vagas-table tbody td { padding:0.65rem 1rem; color:var(--text); }
+    .vagas-table tbody td:not(:first-child) { text-align:right; }
+
+    /* ── Pivot tables ── */
+    .pivot-table-wrap { overflow-x:auto; border-radius:var(--radius); border:1px solid var(--border); }
+    table.pivot { width:100%; border-collapse:collapse; font-size:0.82rem; }
+    table.pivot thead tr { background:#0d1b3e; }
+    table.pivot thead th { padding:0.75rem 1rem; text-align:left; font-weight:700; font-size:0.72rem; letter-spacing:1px; text-transform:uppercase; color:var(--teal); border-bottom:1px solid var(--border); }
+    table.pivot thead th:not(:first-child) { text-align:right; }
+    table.pivot tbody tr { border-bottom:1px solid rgba(255,255,255,0.05); transition:background 0.15s; }
+    table.pivot tbody tr:hover { background:rgba(0,202,243,0.04); }
+    table.pivot tbody tr.total-row { background:#0d2847; font-weight:700; }
+    table.pivot tbody td { padding:0.6rem 1rem; color:var(--text); }
+    table.pivot tbody td:not(:first-child) { text-align:right; }
+
+    /* ── Badges ── */
+    .badge { display:inline-block; padding:0.15rem 0.5rem; border-radius:4px; font-size:0.72rem; font-weight:700; }
+    .badge.positive { background:rgba(22,101,52,0.2); color:#4ade80; }
+    .badge.atencao  { background:var(--color-atencao-bg); color:var(--color-atencao); }
+    .badge.neutral  { background:rgba(255,255,255,0.06); color:var(--text-muted); }
+
+    /* Impact tags */
+    .tag { display:inline-flex; align-items:center; gap:4px; padding:0.2rem 0.65rem; border-radius:100px; font-size:0.7rem; font-weight:700; white-space:nowrap; }
+    .tag.faster    { background:var(--color-ganho-bg);    color:var(--color-ganho); }
+    .tag.slower    { background:var(--color-atencao-bg);  color:var(--color-atencao); }
+    .tag.exclusive { background:rgba(255,255,255,0.06);   color:var(--text-muted); }
+
+    /* ΔPP arrows */
+    .dpp { display:inline-flex; align-items:center; gap:3px; font-weight:700; font-size:0.82rem; }
+    .dpp.up   { color:var(--success); }
+    .dpp.down { color:var(--color-atencao); }
+    .dpp.flat { color:var(--text-muted); }
+
+    /* ── Block 13: Diagnóstico ── */
+    .veredicto-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:1.75rem 2rem; display:grid; grid-template-columns:auto 1fr 1fr; gap:2rem; align-items:start; }
+    @media (max-width:900px) { .veredicto-card { grid-template-columns:1fr; } }
+    .veredicto-badge { padding:0.6rem 1.4rem; border-radius:6px; font-family:'Switzer',var(--font-sans); font-weight:700; font-size:1rem; white-space:nowrap; }
+    .insights-col h4 { font-size:0.72rem; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.75rem; }
+    .insights-col ul { list-style:none; display:flex; flex-direction:column; gap:0.5rem; }
+    .insights-col ul li { font-size:0.83rem; padding-left:1.2rem; position:relative; color:rgba(241,245,249,0.85); }
+    .insights-col ul li::before { content:attr(data-icon); position:absolute; left:0; }
+
+    /* ── Compartilhar ── */
+    .compartilhar-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:1.75rem 2rem; }
+    .compartilhar-texto { background:var(--bg-card2); border:1px solid rgba(255,255,255,0.06); border-radius:8px; padding:1.25rem 1.5rem; font-size:0.88rem; color:var(--text-muted); line-height:1.8; white-space:pre-wrap; font-family:var(--font-sans); margin-bottom:1rem; user-select:all; }
+    .btn-copy { background:rgba(0,202,243,0.1); border:1px solid rgba(0,202,243,0.3); color:var(--teal); font-family:var(--font-sans); font-weight:600; font-size:0.82rem; padding:0.5rem 1.2rem; border-radius:6px; cursor:pointer; transition:background 0.2s; }
+    .btn-copy:hover { background:rgba(0,202,243,0.2); }
+
+    /* ── Metodologia ? ── */
+    .method-btn {
+      flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%;
+      border: 1px solid rgba(0,202,243,0.4); background: transparent;
+      color: var(--teal); font-size: 0.65rem; font-weight: 700;
+      cursor: pointer; line-height: 1;
+      transition: background 0.15s, border-color 0.15s; padding: 0;
+    }
+    .method-btn:hover { background: rgba(0,202,243,0.12); border-color: var(--teal); }
+    .method-btn.active { background: rgba(0,202,243,0.2); border-color: var(--teal); }
+    .method-panel {
+      max-height: 0; overflow: hidden;
+      transition: max-height 0.28s ease, opacity 0.2s ease;
+      opacity: 0; margin-bottom: 0;
+    }
+    .method-panel.open { max-height: 400px; opacity: 1; margin-bottom: 1rem; }
+    .method-content {
+      background: rgba(0,202,243,0.04); border: 1px solid rgba(0,202,243,0.15);
+      border-radius: 8px; padding: 1rem 1.25rem;
+      font-size: 0.8rem; color: var(--text-muted); line-height: 1.7;
+    }
+    .method-content strong { color: var(--text-primary); }
+    .method-content code {
+      background: rgba(255,255,255,0.07); border-radius: 4px;
+      padding: 0.1em 0.35em; font-size: 0.78rem; color: #00caf3;
+    }
+
+    /* ── Evolução DigAI ── */
+    .ev-tabs { display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1.25rem; }
+    .ev-tab { background:transparent; border:1px solid var(--border); color:var(--text-muted); font-family:var(--font-sans); font-size:0.78rem; font-weight:600; padding:0.4rem 0.9rem; border-radius:6px; cursor:pointer; transition:all 0.15s; }
+    .ev-tab.active { background:var(--color-com-digai); border-color:var(--color-com-digai); color:#fff; }
+    .ev-tab:hover:not(.active) { border-color:var(--text-muted); color:var(--text-primary); }
+    #evolucao-svg { width:100%; height:260px; display:block; }
+    .ev-table { width:100%; border-collapse:collapse; font-size:0.8rem; margin-top:1.25rem; }
+    .ev-table th { text-align:left; color:var(--text-muted); font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; padding:0.45rem 0.75rem; border-bottom:1px solid var(--border); }
+    .ev-table td { padding:0.55rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.04); color:var(--text-primary); }
+    .ev-table tr:last-child td { border-bottom:none; }
+    .ev-table tr.current td { background:rgba(37,99,235,0.08); font-weight:600; }
+    .ev-delta-pos { color:#4ADE80; }
+    .ev-delta-neg { color:#F87171; }
+    .ev-delta-neu { color:var(--text-muted); }
+
+    /* ── Footer ── */
+    .footer { text-align:center; padding:2rem; color:var(--text-muted); font-size:0.75rem; border-top:1px solid var(--border); }
+    .footer a { color:var(--teal); text-decoration:none; }
+
+    @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    @media print { .btn-download,.header { position:static; } }
+  </style>
+</head>
+<body>
+
+<!-- 1. HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div id="logo-area">
+      <img id="logo-img" src="" alt="" style="display:none;height:36px;width:auto;object-fit:contain;border-radius:4px;cursor:pointer" title="Clique para trocar o logo" onclick="document.getElementById('logo-input').click()" />
+      <div class="logo" id="logo-text">Dig<span>AI</span></div>
+    </div>
+    <input type="file" id="logo-input" accept="image/*" style="display:none" onchange="handleLogoUpload(event)" />
+    <div class="header-meta">
+      <span class="cliente" id="h-cliente"></span>
+      <span class="periodo" id="h-periodo"></span>
+      <span class="gerado"  id="h-gerado"></span>
+    </div>
+  </div>
+  <div style="display:flex;gap:0.5rem;align-items:center">
+    <button class="btn-download" onclick="downloadExcel()" id="btn-xlsx">↓ Excel</button>
+    <button class="btn-download" onclick="document.getElementById('logo-input').click()" style="font-size:0.8rem;padding:0.5rem 0.9rem">Logo</button>
+    <button class="btn-download" onclick="window.print()" style="font-size:0.8rem;padding:0.5rem 0.9rem">Print</button>
+  </div>
+</header>
+
+<main class="main">
+
+<!-- 2. IMPACTO ACUMULADO -->
+<div class="section-block">
+  <div class="section-question">O que a DigAI entregou neste período?</div>
+  <div class="section-title">Impacto Acumulado <button class="method-btn" onclick="toggleMethod('impacto')">?</button></div>
+  <div class="method-panel" id="method-impacto"><div class="method-content">
+    <strong>Com DigAI</strong> = candidatos que realizaram entrevista pela plataforma DigAI. <strong>Sem DigAI</strong> = demais candidatos no mesmo período e cliente. Deduplicação por e-mail: mesmo candidato em múltiplas vagas conta uma única vez em cada grupo.
+  </div></div>
+  <div class="impacto-card" id="bloco-impacto"><div class="impacto-glow"></div></div>
+</div>
+
+<!-- 3. INDICADORES DE PERFORMANCE — 3 tiers -->
+<div class="section-block">
+  <div class="section-question">Como estamos nos KPIs que importam?</div>
+  <div class="section-title">Indicadores de Performance <button class="method-btn" onclick="toggleMethod('kpis')">?</button></div>
+  <div class="method-panel" id="method-kpis"><div class="method-content">
+    <strong>Taxa de contratação</strong> = <code>Contratados ÷ Total candidatos × 100</code> por grupo. — <strong>Assertividade</strong> = <code>Total entrevistas IA ÷ Contratados via DigAI</code> (entrevistas necessárias por contratação — quanto menor, mais preciso). — <strong>SLA médio</strong> = média de dias entre data de cadastro e data de contratação. — <strong>Adesão DigAI</strong> = <code>Candidatos Com DigAI ÷ Total geral × 100</code>.
+  </div></div>
+  <div class="kpi-row-large"  id="kpi-row-large"></div>
+  <div class="kpi-row-medium" id="kpi-row-medium"></div>
+  <div class="kpi-row-small"  id="kpi-row-small"></div>
+</div>
+
+<!-- 4. LINHA DO TEMPO DO PROCESSO -->
+<div class="section-block">
+  <div class="section-question">A DigAI está acelerando o processo?</div>
+  <div class="section-title">Linha do Tempo do Processo <button class="method-btn" onclick="toggleMethod('timeline')">?</button></div>
+  <div class="method-panel" id="method-timeline"><div class="method-content">
+    Dias corridos entre as etapas do processo seletivo: do cadastro do candidato à triagem, da triagem à entrevista, da entrevista à contratação. Calculado com <strong>mediana</strong> (não média) para reduzir o impacto de outliers. Candidatos ainda em processo (sem data de saída) são excluídos de cada etapa correspondente.
+  </div></div>
+  <div class="card" id="bloco-timeline"></div>
+</div>
+
+<!-- 5. FUNIL DE CONVERSÃO -->
+<div class="section-block">
+  <div class="section-question">Onde os candidatos estão avançando?</div>
+  <div class="section-title">Funil de Conversão <button class="method-btn" onclick="toggleMethod('funil')">?</button></div>
+  <div class="method-panel" id="method-funil"><div class="method-content">
+    <strong>Cadastro</strong> = total de inscritos no período (base 100%). As etapas seguintes são lidas diretamente do ATS (Gupy) na ordem do processo seletivo. A <strong>Entrevista DigAI</strong> é inserida antes das etapas do ATS quando presente. <strong>Drop-off</strong> = <code>(candidatos etapa anterior − candidatos etapa atual) ÷ candidatos etapa anterior × 100</code>. Etapas com o mesmo nome são agrupadas.
+  </div></div>
+  <div class="card" id="bloco-funil"></div>
+</div>
+
+<!-- 6. CUSTO POR ENTREVISTA -->
+<div class="section-block">
+  <div class="section-question">Quanto economizamos por entrevista?</div>
+  <div class="section-title">Custo por Entrevista <button class="method-btn" onclick="toggleMethod('custo')">?</button></div>
+  <div class="method-panel" id="method-custo"><div class="method-content">
+    <strong>Custo TA</strong> = <code>(Salário bruto mensal ÷ 22 dias úteis ÷ 8h) × duração da entrevista (h) × (1 + encargos trabalhistas)</code>. — <strong>Custo IA</strong> = <code>Mensalidade DigAI ÷ total de entrevistas realizadas no período</code>. — <strong>Economia por entrevista</strong> = Custo TA − Custo IA. — <strong>Savings totais</strong> = Economia por entrevista × número de entrevistas IA realizadas. Parâmetros (salário, encargos, mensalidade) configurados no painel de ROI.
+  </div></div>
+  <div class="card" id="bloco-custo"></div>
+</div>
+
+<!-- 7. SCORE DOS CONTRATADOS -->
+<div class="section-block" id="bloco-score-wrap">
+  <div class="section-question">A IA está contratando os melhores ou só os disponíveis?</div>
+  <div class="section-title">Score dos Contratados <button class="method-btn" onclick="toggleMethod('score')">?</button></div>
+  <div class="method-panel" id="method-score"><div class="method-content">
+    Score de <strong>0 a 100</strong> atribuído pelo modelo DigAI durante a triagem automática — reflete aderência ao perfil da vaga. Distribuição em faixas de 10 pontos. <strong>P25</strong> = 25% dos contratados ficaram abaixo desse score. <strong>P75</strong> = 75% ficaram abaixo. A faixa P25–P75 concentra 50% das contratações e indica a "zona de conforto" do modelo para essa operação.
+  </div></div>
+  <div class="card">
+    <div style="display:grid;grid-template-columns:1fr 260px;gap:2rem;align-items:start">
+      <div>
+        <div class="card-title">Distribuição de Score — Todos Entrevistados vs Contratados</div>
+        <div style="position:relative;height:260px"><canvas id="chart-score"></canvas></div>
+      </div>
+      <div id="score-insight-wrap"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 7.5. PERFIL DOS CONTRATADOS -->
+<div class="section-block" id="bloco-perfil-wrap">
+  <div class="section-question">Quem são os talentos que estamos contratando?</div>
+  <div class="section-title">Perfil dos Contratados <button class="method-btn" onclick="toggleMethod('perfil')">?</button></div>
+  <div class="method-panel" id="method-perfil"><div class="method-content">
+    <strong>Gênero</strong> inferido pelo primeiro nome via base IBGE + DataSUS (~65–70% de cobertura). Nomes ambíguos ou fora da base = "Não identificado". <strong>Área e Filial</strong> extraídas diretamente do ATS, sem inferência. Os contratados considerados aqui seguem a mesma deduplicação por e-mail dos KPIs — um candidato contratado em múltiplas vagas conta uma vez.
+  </div></div>
+  <div class="perfil-grid">
+    <div class="card" id="perfil-genero-card">
+      <div class="card-title">Distribuição por Gênero</div>
+      <div id="perfil-genero-content"></div>
+    </div>
+    <div class="card" id="perfil-area-card">
+      <div class="card-title">Top Áreas</div>
+      <div id="perfil-area-content"></div>
+    </div>
+    <div class="card" id="perfil-filial-card">
+      <div class="card-title">Top Filiais</div>
+      <div id="perfil-filial-content"></div>
+    </div>
+  </div>
+  <div class="perfil-meta-row" id="perfil-meta-row"></div>
+</div>
+
+<!-- 8. MAPA DE VAGAS -->
+<div class="section-block" id="bloco-vagas-wrap">
+  <div class="section-question">Quais vagas estão performando melhor?</div>
+  <div class="section-title">Mapa de Vagas <button class="method-btn" onclick="toggleMethod('vagas')">?</button></div>
+  <div class="method-panel" id="method-vagas"><div class="method-content">
+    <strong>Adesão por vaga</strong> = <code>Candidatos Com DigAI nessa vaga ÷ Total candidatos dessa vaga × 100</code>. — <strong>SLA Médio</strong> = mediana de dias do processo seletivo para essa vaga (do cadastro à contratação). — <strong>Assertividade</strong> = entrevistas IA realizadas por contratação nessa vaga — quanto menor, mais preciso o modelo para esse cargo. Vagas sem contratação no período também aparecem.
+  </div></div>
+  <div class="vagas-table-wrap">
+    <table class="vagas-table">
+      <thead><tr>
+        <th onclick="sortVagas('vaga')"          id="th-vaga">Vaga <span class="si">↕</span></th>
+        <th onclick="sortVagas('contratados')"   id="th-contratados">Contratações <span class="si">↕</span></th>
+        <th onclick="sortVagas('assertividade')" id="th-assertividade">Assertividade <span class="si">↕</span></th>
+        <th onclick="sortVagas('adesao')"        id="th-adesao">Adesão <span class="si">↕</span></th>
+        <th onclick="sortVagas('sla_medio')"     id="th-sla_medio">SLA Médio <span class="si">↕</span></th>
+      </tr></thead>
+      <tbody id="vagas-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 9. STATUS DOS CANDIDATOS + FUNIL DETALHADO -->
+<div class="section-block">
+  <div class="section-question">Como o funil se comporta nos dois grupos?</div>
+  <div class="section-title">Status dos Candidatos + Funil Detalhado <button class="method-btn" onclick="toggleMethod('status')">?</button></div>
+  <div class="method-panel" id="method-status"><div class="method-content">
+    <strong>Status</strong> = distribuição por situação atual no ATS (Gupy): Contratado, Reprovado, Em processo, etc. — <strong>Funil Detalhado</strong> = etapas do processo com contagem acumulada de candidatos que chegaram a cada ponto. <code>Δpp</code> = diferença em pontos percentuais entre Com e Sem DigAI na mesma etapa. Mesma deduplicação por e-mail aplicada em todos os cálculos.
+  </div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
+    <div class="pivot-table-wrap"><table class="pivot" id="table-status"></table></div>
+    <div class="pivot-table-wrap"><table class="pivot" id="table-funil"></table></div>
+  </div>
+</div>
+
+<!-- 10. SLA E TEMPO MÉDIO POR ETAPA -->
+<div class="section-block">
+  <div class="section-question">A DigAI é mais rápida em cada etapa?</div>
+  <div class="section-title">SLA e Tempo Médio por Etapa <button class="method-btn" onclick="toggleMethod('sla')">?</button></div>
+  <div class="method-panel" id="method-sla"><div class="method-content">
+    Dias corridos entre a <strong>entrada</strong> e a <strong>saída</strong> de cada etapa no ATS. Apenas valores ≥ 0 entram no cálculo (valores negativos indicam erro de data e são descartados). Candidatos ainda na etapa (sem data de saída) são excluídos daquela etapa específica. A coluna <strong>Diferença</strong> mostra quantos dias a mais ou a menos o grupo Com DigAI levou em relação ao Sem DigAI.
+  </div></div>
+  <div class="pivot-table-wrap"><table class="pivot" id="table-tempo"></table></div>
+</div>
+
+<!-- 11. COMPARATIVO DE PERÍODOS -->
+<div class="section-block" id="bloco-periodo-wrap">
+  <div class="section-question">Como a performance evolui no tempo?</div>
+  <div class="section-title">Comparativo de Períodos <button class="method-btn" onclick="toggleMethod('periodo')">?</button></div>
+  <div class="method-panel" id="method-periodo"><div class="method-content">
+    Candidatos agrupados por <strong>mês de cadastro</strong>. Dentro de cada mês, separados em Com e Sem DigAI. Permite identificar tendências de adoção e performance ao longo do tempo dentro do período do relatório. Meses com menos de 10 candidatos em algum grupo podem apresentar taxas instáveis por baixo volume amostral.
+  </div></div>
+  <div id="bloco-periodo-content"></div>
+</div>
+
+<!-- 12. ORIGEM DOS CANDIDATOS -->
+<div class="section-block" id="bloco-origem-wrap" style="display:none">
+  <div class="section-question">De onde vêm nossos talentos?</div>
+  <div class="section-title">Origem dos Candidatos <button class="method-btn" onclick="toggleMethod('origem')">?</button></div>
+  <div class="method-panel" id="method-origem"><div class="method-content">
+    Campo "origem" ou "estado" extraído diretamente do ATS. Quando apenas o DDD está disponível, ele é usado como proxy de localização geográfica. Candidatos sem localização registrada aparecem como "Não informado". O mapa exibe intensidade por estado — quanto mais escuro, maior o volume de candidatos daquele estado.
+  </div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;align-items:start">
+    <!-- Tabela top estados -->
+    <div>
+      <div class="pivot-table-wrap"><table class="pivot" id="table-origem"></table></div>
+    </div>
+    <!-- Mapa do Brasil D3 -->
+    <div class="card" style="padding:1rem">
+      <div class="card-title" style="margin-bottom:0.75rem">Distribuição Geográfica</div>
+      <div id="brasil-map-wrap" style="position:relative;min-height:340px">
+        <svg id="brasil-svg" style="width:100%;height:380px;display:block"></svg>
+        <div id="map-tooltip" style="display:none;position:absolute;background:#112240;border:1px solid #2563EB44;border-radius:6px;padding:0.5rem 0.75rem;font-size:0.75rem;pointer-events:none;z-index:10;min-width:140px">
+          <div id="map-tooltip-uf" style="font-weight:700;color:#00caf3;margin-bottom:0.2rem"></div>
+          <div id="map-tooltip-info" style="color:#cbd5e1"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 13. DIAGNÓSTICO GERAL — posição final conforme spec -->
+<div class="section-block">
+  <div class="section-question">Veredito do período</div>
+  <div class="section-title">Diagnóstico Geral <button class="method-btn" onclick="toggleMethod('diagnostico')">?</button></div>
+  <div class="method-panel" id="method-diagnostico"><div class="method-content">
+    <strong>Veredicto</strong> gerado por regras determinísticas — não por IA: compara o delta de taxa de contratação, assertividade e savings contra thresholds internos. <strong>Pontos de destaque</strong> = métricas que superam o esperado para o perfil do cliente. <strong>Pontos de atenção</strong> = métricas abaixo do threshold mínimo de performance. O veredicto final (Positivo / Neutro / Atenção) é calculado pela soma ponderada dos indicadores.
+  </div></div>
+  <div class="veredicto-card" id="veredicto-card"></div>
+</div>
+
+<!-- Evolução DigAI (visível apenas quando houver histórico) -->
+<div class="section-block" id="evolucao-section" style="display:none">
+  <div class="section-title">Evolução DigAI — Histórico do Cliente <button class="method-btn" onclick="toggleMethod('evolucao')">?</button></div>
+  <div class="method-panel" id="method-evolucao"><div class="method-content">
+    KPIs capturados no <strong>momento exato de geração</strong> de cada relatório e armazenados no registro interno. O ponto atual (destacado em ciano) é sempre o mais recente. <strong>Variação de taxa</strong> em pontos percentuais (pp) entre períodos consecutivos. Relatórios sem snapshot (gerados antes desta versão) não aparecem na linha do tempo. Use os botões de métrica para alternar entre Taxa de Contratação, Adesão, Savings e ROI.
+  </div></div>
+  <div class="card" style="padding:1.75rem 2rem">
+    <div class="ev-tabs" id="ev-tabs">
+      <button class="ev-tab active" data-metric="taxa_com">Taxa Contratação (%)</button>
+      <button class="ev-tab" data-metric="adesao_pct">Adesão (%)</button>
+      <button class="ev-tab" data-metric="savings">Savings (R$)</button>
+      <button class="ev-tab" data-metric="roi">ROI (x)</button>
+    </div>
+    <svg id="evolucao-svg"></svg>
+    <table class="ev-table" id="ev-table">
+      <thead>
+        <tr>
+          <th>Período</th>
+          <th>Contratados (Com DigAI)</th>
+          <th>Taxa (%)</th>
+          <th>Adesão (%)</th>
+          <th>Savings (R$)</th>
+          <th>ROI (x)</th>
+          <th>Variação Taxa</th>
+        </tr>
+      </thead>
+      <tbody id="ev-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Resumo para Compartilhamento -->
+<div class="section-block">
+  <div class="section-title">Resumo para Compartilhamento</div>
+  <div class="compartilhar-card">
+    <div class="compartilhar-texto" id="compartilhar-texto"></div>
+    <button class="btn-copy" onclick="copiarResumo()">Copiar texto</button>
+  </div>
+</div>
+
+</main>
+
+<footer class="footer">
+  Relatório gerado por <a href="https://digai.ai" target="_blank">DigAI</a> &nbsp;·&nbsp;
+  Dados 100% baseados na base de candidatos &nbsp;·&nbsp;
+  <span id="footer-gerado"></span>
+</footer>
+
+<script>
+const DATA = {{REPORT_JSON}};
+const HISTORICO = "__HISTORICO_JSON__";
+
+function toggleMethod(id) {
+  const panel = document.getElementById('method-' + id);
+  const btn   = panel.previousElementSibling.querySelector('.method-btn');
+  panel.classList.toggle('open');
+  if (btn) btn.classList.toggle('active');
+}
+</script>
+
+<script>
+/* ── Paleta (sem vermelho — spec N1) ── */
+const C = {
+  comDigai:  '#2563EB',
+  semDigai:  '#94A3B8',
+  ganho:     '#166534',
+  ganhoBg:   '#DCFCE7',
+  atencao:   '#C2410C',
+  atencaoBg: '#FFEDD5',
+  teal:      '#00caf3',
+  tealLight: '#00e6b8',
+  success:   '#20BD5A',
+  text:      '#F1F5F9',
+  muted:     '#94A3B8',
+  cardBg:    '#112240',
+};
+
+/* ── Formatters ── */
+const fmt = {
+  pct:  v => v == null ? 'N/A' : (+v).toFixed(1) + '%',
+  brl:  v => v == null ? 'N/A' : 'R$ ' + (+v).toLocaleString('pt-BR', {minimumFractionDigits:2,maximumFractionDigits:2}),
+  num:  v => v == null ? 'N/A' : Math.round(+v).toLocaleString('pt-BR'),
+  days: v => v == null ? 'N/A' : (+v).toFixed(1) + ' dias',
+};
+
+function emptyState(icon, title, desc) {
+  return `<div class="empty-state">
+    <div class="empty-state-icon">${icon}</div>
+    <div class="empty-state-title">${title}</div>
+    <div class="empty-state-desc">${desc}</div>
+  </div>`;
+}
+
+/* badge com semântica (sem vermelho) */
+function badge(v, suffix='', flip=false) {
+  if (v == null) return '—';
+  const pos = flip ? v < 0 : v > 0;
+  const cls = pos ? 'positive' : (v === 0 ? 'neutral' : 'atencao');
+  const sign = v > 0 ? '+' : '';
+  return `<span class="badge ${cls}">${sign}${(+v).toFixed(1)}${suffix}</span>`;
+}
+
+/* ΔPP com seta direcional */
+function deltaPP(v, flip=false) {
+  if (v == null) return '<span class="dpp flat">—</span>';
+  const pos = flip ? v < 0 : v > 0;
+  const neg = flip ? v > 0 : v < 0;
+  const cls = pos ? 'up' : neg ? 'down' : 'flat';
+  const arrow = pos ? '▲' : neg ? '▼' : '●';
+  const sign = v > 0 ? '+' : '';
+  return `<span class="dpp ${cls}">${arrow} ${sign}${(+v).toFixed(1)} pp</span>`;
+}
+
+/* ── Header ── */
+document.getElementById('h-cliente').textContent = DATA.meta.cliente;
+document.getElementById('h-periodo').textContent = DATA.meta.periodo;
+document.getElementById('h-gerado').textContent  = 'Gerado em ' + DATA.meta.gerado_em;
+document.getElementById('footer-gerado').textContent = 'Gerado em ' + DATA.meta.gerado_em;
+document.title = `DigAI — ${DATA.meta.cliente} | ${DATA.meta.periodo}`;
+
+/* ── 2. IMPACTO ACUMULADO ── */
+(function() {
+  const narr = DATA.narrativa || {};
+  const el = document.getElementById('bloco-impacto');
+  el.innerHTML += `
+    <div class="impacto-headline">${narr.headline || 'Relatório DigAI'}</div>
+    <div class="impacto-historia">${narr.historia || ''}</div>
+    <div class="impacto-bullets">
+      ${(narr.destaques||[]).map((d,i) => `<span class="impacto-pill ${i===0?'success':''}">${d}</span>`).join('')}
+    </div>`;
+})();
+
+/* ── 3. KPI CARDS — 3 tiers ── */
+(function() {
+  const com = DATA.kpis['Com DigAI'];
+  const sem = DATA.kpis['Sem DigAI'];
+  const d   = DATA.kpis.delta;
+  const roi = DATA.roi;
+
+  function kpiCard(size, label, value, deltaObj, sub) {
+    const dHtml = deltaObj
+      ? `<div class="kpi-delta ${deltaObj.cls}">${deltaObj.text}</div>`
+      : '';
+    return `<div class="kpi-card ${size}">
+      <div class="kpi-label">${label}</div>
+      <div class="kpi-value">${value}</div>
+      ${dHtml}
+      <div class="kpi-sub">${sub}</div>
+    </div>`;
+  }
+
+  function mkDelta(val, suffix, flip=false) {
+    if (val == null) return null;
+    const pos = flip ? val < 0 : val > 0;
+    return { cls: pos ? 'positive' : (val===0?'neutral':'atencao'), text: (val>0?'+':'') + (+val).toFixed(1) + suffix };
+  }
+
+  /* Large: ROI + Contratações */
+  document.getElementById('kpi-row-large').innerHTML =
+    kpiCard('large', 'ROI DigAI', roi.roi + 'x', null,
+      `Savings: ${fmt.brl(roi.savings)} &nbsp;·&nbsp; Investimento: ${fmt.brl(roi.investimento_total)}`) +
+    kpiCard('large', 'Contratações DigAI', fmt.num(com.contratados),
+      mkDelta(d.contratacoes, ' vs Sem DigAI'),
+      `Sem DigAI: ${fmt.num(sem.contratados)} &nbsp;·&nbsp; Total: ${fmt.num((com.contratados||0)+(sem.contratados||0))}`);
+
+  /* Medium: Saving + Adesão + Assertividade */
+  const adesaoPct = com.adesao != null ? +(com.adesao*100).toFixed(1) : null;
+  document.getElementById('kpi-row-medium').innerHTML =
+    kpiCard('medium', 'Savings Acumulado', fmt.brl(roi.savings), null,
+      `vs R$ ${(roi.mensalidade_digai||0).toLocaleString('pt-BR')}/mês`) +
+    kpiCard('medium', 'Adesão DigAI',
+      adesaoPct != null ? adesaoPct + '%' : 'N/A',
+      mkDelta(d.adesao, ' pp'),
+      '% do universo Gupy que passou pela EI') +
+    kpiCard('medium', 'Assertividade',
+      com.assertividade != null ? com.assertividade + ' EI/cont.' : 'N/A',
+      null,
+      'Entrevistas necessárias por contratação');
+
+  /* Small: SLA + Custo/EI */
+  const slaDelta = d.sla != null ? { cls: d.sla < 0 ? 'positive' : (d.sla===0?'neutral':'atencao'), text: (d.sla>0?'+':'')+d.sla.toFixed(1)+' dias vs Sem DigAI' } : null;
+  document.getElementById('kpi-row-small').innerHTML =
+    kpiCard('small', 'SLA Médio', fmt.days(com.sla_media), slaDelta,
+      `Sem DigAI: ${fmt.days(sem.sla_media)}`) +
+    kpiCard('small', 'Custo / Entrevista IA', fmt.brl(roi.custo_por_entrevista_ia), null,
+      `vs ${fmt.brl(roi.custo_por_entrevista_ta)} (humano) — economia: ${fmt.brl(roi.economia_por_entrevista)}/EI`);
+})();
+
+/* ── 4. LINHA DO TEMPO ── */
+(function() {
+  const wrap = document.getElementById('bloco-timeline');
+  const tempos = DATA.tempos_din && DATA.tempos_din.length > 0 ? DATA.tempos_din : DATA.tempos;
+
+  if (!tempos || tempos.length === 0) {
+    wrap.innerHTML = emptyState('📅','Dado não disponível',
+      'Análise de SLA requer datas de movimentação no ATS — verifique a integração Gupy.');
+    return;
+  }
+
+  const totalCom = tempos.reduce((s,r) => s+(r.com_digai||0), 0);
+  const totalSem = tempos.reduce((s,r) => s+(r.sem_digai||0), 0);
+  const maxT     = Math.max(totalCom, totalSem, 1);
+  const speedup  = totalSem > 0 && totalCom > 0 ? (totalSem/totalCom).toFixed(1) : null;
+
+  wrap.innerHTML = `
+    <div class="card-title">Comparativo total do processo</div>
+    <div class="timeline-summary">
+      <div class="timeline-bar-wrap">
+        <div class="timeline-bar-label">Com DigAI — processo completo</div>
+        <div class="timeline-bar-track">
+          <div class="timeline-bar-fill" style="width:${totalCom/maxT*100}%;background:var(--color-com-digai)">
+            <span>${totalCom.toFixed(1)} dias</span>
+          </div>
+        </div>
+        ${speedup?`<div class="timeline-bar-sub">${speedup}× mais rápido que Sem DigAI</div>`:''}
+      </div>
+      <div class="timeline-bar-wrap">
+        <div class="timeline-bar-label">Sem DigAI — processo completo</div>
+        <div class="timeline-bar-track">
+          <div class="timeline-bar-fill" style="width:${totalSem>0?totalSem/maxT*100:0}%;background:var(--color-sem-digai)88">
+            <span>${totalSem>0?totalSem.toFixed(1)+' dias':'Sem dados'}</span>
+          </div>
+        </div>
+        ${totalSem===0?'<div class="timeline-bar-sub">Sem dados comparativos disponíveis</div>':''}
+      </div>
+    </div>
+    <div class="card-title" style="margin-top:1.5rem">Detalhamento por etapa</div>
+    <div style="position:relative;height:${Math.max(180,tempos.length*42)}px">
+      <canvas id="chart-timeline"></canvas>
+    </div>`;
+
+  new Chart(document.getElementById('chart-timeline'), {
+    type: 'bar',
+    data: {
+      labels: tempos.map(r => r.etapa),
+      datasets: [
+        { label:'Com DigAI', data:tempos.map(r=>r.com_digai), backgroundColor:C.comDigai+'cc', borderRadius:4 },
+        { label:'Sem DigAI', data:tempos.map(r=>r.sem_digai), backgroundColor:C.semDigai+'88', borderRadius:4 },
+      ],
+    },
+    options: {
+      indexAxis: 'y', responsive:true, maintainAspectRatio:false,
+      plugins: {
+        legend: { labels:{ color:C.text, font:{size:11} } },
+        tooltip: { callbacks: {
+          label: ctx => ctx.parsed.x==null||ctx.parsed.x===0 ? ctx.dataset.label+': N/A' : ctx.dataset.label+': '+ctx.parsed.x.toFixed(1)+' dias',
+          afterBody: items => {
+            const r = tempos[items[0].dataIndex];
+            return (r && (r.sem_digai==null||r.sem_digai===0)) ? ['Etapa exclusiva DigAI — sem comparativo no fluxo tradicional'] : [];
+          }
+        }}
+      },
+      scales: {
+        x: { ticks:{color:C.muted,callback:v=>v+'d'}, grid:{color:'rgba(255,255,255,0.04)'} },
+        y: { ticks:{color:C.text,font:{size:10}},     grid:{color:'rgba(255,255,255,0.04)'} },
+      },
+    },
+  });
+})();
+
+/* ── 5. FUNIL DE CONVERSÃO — SVG trapézios ── */
+(function() {
+  const wrap = document.getElementById('bloco-funil');
+  const fd   = DATA.funil_din && DATA.funil_din.length > 0 ? DATA.funil_din : DATA.funil;
+
+  if (!fd || fd.length === 0) {
+    wrap.innerHTML = emptyState('📊','Dado não disponível','Funil requer etapas com datas no ATS.');
+    return;
+  }
+
+  const hasSem  = fd.some(r => (r.sem_digai||0) > 0);
+  const maxCom  = Math.max(...fd.map(r=>r.com_digai||0), 1);
+  const maxSem  = Math.max(...fd.map(r=>r.sem_digai||0), 1);
+  const W = 220, H_STEP = 50, GAP = 3, MIN_F = 0.12;
+  const totalH  = fd.length * H_STEP + (fd.length-1) * GAP;
+
+  function trapPolygon(cx, y, topW, botW, h, fill) {
+    const x1=cx-topW/2, x2=cx+topW/2, x3=cx+botW/2, x4=cx-botW/2;
+    return `<polygon points="${x1},${y} ${x2},${y} ${x3},${y+h} ${x4},${y+h}" fill="${fill}" opacity="0.88"/>`;
+  }
+
+  function makeSVG(side) {
+    const maxV = side==='com' ? maxCom : maxSem;
+    const color = side==='com' ? C.comDigai : C.semDigai;
+    let inner = '';
+    fd.forEach((r, i) => {
+      const vol     = side==='com' ? (r.com_digai||0) : (r.sem_digai||0);
+      const volNext = i < fd.length-1 ? (side==='com' ? (fd[i+1].com_digai||0) : (fd[i+1].sem_digai||0)) : vol*0.75;
+      const topW = Math.max(MIN_F, vol/maxV) * (W-16);
+      const botW = Math.max(MIN_F, volNext/maxV) * (W-16);
+      const y    = i*(H_STEP+GAP);
+      inner += trapPolygon(W/2, y, topW, botW, H_STEP, color);
+      inner += `<text x="${W/2}" y="${y+H_STEP/2+4}"  text-anchor="middle" font-size="12" font-weight="700" fill="white">${fmt.num(vol)}</text>`;
+      inner += `<text x="${W/2}" y="${y+H_STEP/2+17}" text-anchor="middle" font-size="9"  fill="rgba(255,255,255,0.65)">${maxV>0?(vol/maxV*100).toFixed(0):'0'}%</text>`;
+    });
+    return `<svg width="${W}" height="${totalH}" viewBox="0 0 ${W} ${totalH}" style="display:block;overflow:visible">${inner}</svg>`;
+  }
+
+  /* Aviso sem grupo controle */
+  const alertHtml = !hasSem ? `<div style="margin-bottom:1rem;padding:0.5rem 0.75rem;background:rgba(194,65,12,0.1);border-radius:6px;font-size:0.8rem;color:var(--color-atencao)">
+    Este cliente não possui grupo controle Sem DigAI no período. Compare apenas o desempenho DigAI.</div>` : '';
+
+  /* Labels centrais */
+  const labelsHtml = fd.map((r, i) => {
+    const prevCom = i > 0 ? (fd[i-1].com_digai||0) : null;
+    const repesc  = prevCom != null && (r.com_digai||0) > prevCom;
+    return `<div style="height:${H_STEP}px;${i>0?'margin-top:'+GAP+'px':''}display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <span style="font-size:0.7rem;font-weight:600;color:var(--text-muted);text-align:center;line-height:1.3;max-width:110px">${r.etapa}</span>
+      ${repesc?`<span style="font-size:0.62rem;color:var(--color-atencao);margin-top:2px">+${fmt.num((r.com_digai||0)-prevCom)} adicionados</span>`:''}
+    </div>`;
+  }).join('');
+
+  const semContent = hasSem ? makeSVG('sem')
+    : `<div style="width:${W}px;height:${totalH}px;display:flex;align-items:center;justify-content:center;border:1px dashed var(--border);border-radius:8px">
+        <span style="font-size:0.78rem;color:var(--text-muted);text-align:center;padding:1rem">Sem grupo<br>de controle</span>
+       </div>`;
+
+  wrap.innerHTML = alertHtml + `
+    <div style="display:flex;align-items:flex-start;justify-content:center;gap:0">
+      <div>
+        <div style="text-align:center;font-size:0.72rem;font-weight:700;color:var(--color-com-digai);padding-bottom:0.6rem;letter-spacing:1px;text-transform:uppercase">Com DigAI</div>
+        ${makeSVG('com')}
+      </div>
+      <div style="flex:1;min-width:100px;max-width:140px;padding:1.7rem 0.5rem 0">${labelsHtml}</div>
+      <div>
+        <div style="text-align:center;font-size:0.72rem;font-weight:700;color:var(--color-sem-digai);padding-bottom:0.6rem;letter-spacing:1px;text-transform:uppercase">Sem DigAI</div>
+        ${semContent}
+      </div>
+    </div>
+    <div class="funnel-legend">
+      <div class="funnel-legend-item"><div class="funnel-legend-dot" style="background:${C.comDigai}"></div>Com DigAI</div>
+      <div class="funnel-legend-item"><div class="funnel-legend-dot" style="background:${C.semDigai}"></div>Sem DigAI</div>
+    </div>`;
+})();
+
+/* ── 6. CUSTO POR ENTREVISTA — valores explícitos ── */
+(function() {
+  const wrap = document.getElementById('bloco-custo');
+  const roi = DATA.roi;
+  const ta = roi.custo_por_entrevista_ta || 0;
+  const ia = roi.custo_por_entrevista_ia || 0;
+  const maxV = Math.max(ta, ia, 1);
+  const eco  = roi.economia_por_entrevista || 0;
+  const ecoPct = ta > 0 ? ((eco/ta)*100).toFixed(1) : null;
+
+  wrap.innerHTML = `
+    <div class="custo-bars">
+      <div class="custo-row">
+        <div class="custo-row-label">Entrevista Humana (TA)</div>
+        <div class="custo-bar-line">
+          <div class="custo-bar-track">
+            <div class="custo-bar-fill" style="width:${ta/maxV*100}%;background:${C.semDigai}88"></div>
+          </div>
+          <div class="custo-bar-value" style="color:var(--text-muted)">${fmt.brl(ta)}</div>
+        </div>
+      </div>
+      <div class="custo-row">
+        <div class="custo-row-label">Entrevista IA (DigAI)</div>
+        <div class="custo-bar-line">
+          <div class="custo-bar-track">
+            <div class="custo-bar-fill" style="width:${ia/maxV*100}%;background:${C.comDigai}cc"></div>
+          </div>
+          <div class="custo-bar-value" style="color:var(--teal)">${fmt.brl(ia)}</div>
+        </div>
+      </div>
+      ${eco > 0 ? `<div class="custo-diff">Economia: ${fmt.brl(eco)} por entrevista${ecoPct?' (−'+ecoPct+'%)':''}</div>` : ''}
+    </div>`;
+})();
+
+/* ── 7. SCORE DOS CONTRATADOS — distribuição comparativa ── */
+(function() {
+  const wrap   = document.getElementById('bloco-score-wrap');
+  const iWrap  = document.getElementById('score-insight-wrap');
+  const com    = DATA.kpis['Com DigAI'];
+  const perfil = DATA.perfil_aprovados || {};
+  const scorePerfil = perfil.score;
+
+  const distCont  = scorePerfil && scorePerfil.distribuicao ? scorePerfil.distribuicao : null;
+  const distTodos = com.score_distribuicao || null;
+  const mediaCont = com.score_medio_contratados;
+  const mediaTodos= com.score_medio_todos;
+
+  if (!distCont && !distTodos && mediaCont == null) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  const labels    = (distTodos || distCont || []).map(d => d.faixa);
+  const dataTodos = distTodos ? distTodos.map(d=>d.n) : labels.map(()=>0);
+  const dataCont  = distCont  ? distCont.map(d=>d.n)  : labels.map(()=>0);
+
+  if (labels.length === 0 && mediaCont != null) {
+    /* Sem distribuição — fallback: mostrar só o score médio */
+    iWrap.innerHTML = `<div style="background:var(--bg-card2);border-radius:8px;padding:1.25rem;border:1px solid var(--border)">
+      <div class="kpi-label">Score Médio Contratados</div>
+      <div class="kpi-value" style="font-size:1.8rem;color:var(--teal)">${mediaCont}</div>
+    </div>`;
+    wrap.querySelector('#chart-score').closest('div[style]').innerHTML = emptyState('📊','Distribuição indisponível','Score IA não disponível neste período — verifique se o workflow de aprovação manual está ativo.');
+  } else {
+    new Chart(document.getElementById('chart-score'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label:'Todos entrevistados', data:dataTodos, backgroundColor:C.semDigai+'55', borderRadius:3, order:2 },
+          { label:'Contratados',         data:dataCont,  backgroundColor:C.comDigai+'cc', borderRadius:3, order:1 },
+        ],
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ labels:{ color:C.text, font:{size:11} } } },
+        scales:{
+          x:{ ticks:{color:C.muted,font:{size:9}},  grid:{color:'rgba(255,255,255,0.04)'} },
+          y:{ ticks:{color:C.muted},                 grid:{color:'rgba(255,255,255,0.04)'} },
+        },
+      },
+    });
+  }
+
+  /* Insight automático */
+  let insightHtml = '';
+  if (mediaCont != null && mediaTodos != null) {
+    const delta = +(mediaCont - mediaTodos).toFixed(1);
+    if (Math.abs(delta) < 0.5) {
+      insightHtml = `Score dos contratados está alinhado com a média geral (<strong>${mediaTodos}</strong>) — <strong>oportunidade de elevar o critério de aprovação</strong>.`;
+    } else if (delta > 0) {
+      insightHtml = `Contratados têm score médio <strong>${delta} pontos acima</strong> da média geral — a IA está selecionando os melhores.`;
+    } else {
+      insightHtml = `Contratados têm score médio <strong>${Math.abs(delta)} pontos abaixo</strong> da média geral — avaliar ajuste no critério.`;
+    }
+  } else if (mediaCont != null) {
+    insightHtml = `Score médio dos contratados via DigAI: <strong>${mediaCont}</strong>.`;
+  }
+
+  iWrap.innerHTML = `
+    ${insightHtml ? `<div class="score-insight">${insightHtml}</div>` : ''}
+    <div style="margin-top:0.75rem;background:var(--bg-card2);border-radius:8px;padding:1rem 1.25rem;border:1px solid var(--border)">
+      <div class="kpi-label">Score Médio Contratados</div>
+      <div class="kpi-value" style="font-size:1.7rem;color:var(--teal)">${mediaCont ?? 'N/A'}</div>
+      ${mediaTodos!=null?`<div class="kpi-sub">Média geral entrevistados: ${mediaTodos}</div>`:''}
+    </div>`;
+})();
+
+/* ── 7.5. PERFIL DOS CONTRATADOS ── */
+(function() {
+  const wrap   = document.getElementById('bloco-perfil-wrap');
+  const perfil = DATA.perfil_aprovados || {};
+  const n_tot  = perfil.n_total || 0;
+
+  if (!n_tot && !perfil.genero && !perfil.area && !perfil.filial) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  /* ── Gênero ── */
+  const generoCard = document.getElementById('perfil-genero-card');
+  const generoEl   = document.getElementById('perfil-genero-content');
+  const g = perfil.genero;
+  if (g) {
+    const items = [
+      { label:'Feminino',         n: g['Feminino']        || 0, pct: g['pct_feminino']         || 0, color:'#ec4899' },
+      { label:'Masculino',        n: g['Masculino']       || 0, pct: g['pct_masculino']        || 0, color: C.comDigai },
+      { label:'Não identificado', n: g['Não identificado']|| 0, pct: g['pct_não_identificado'] || 0, color: C.muted },
+    ].filter(i => i.n > 0);
+
+    if (items.length === 0) {
+      generoCard.style.display = 'none';
+    } else {
+      generoEl.innerHTML = `<div class="perfil-genero-pills">
+        ${items.map(i => `
+          <div class="perfil-genero-item">
+            <div class="perfil-genero-lbl">${i.label}</div>
+            <div class="perfil-genero-bar">
+              <div class="perfil-genero-fill" style="width:${Math.max(i.pct,3)}%;background:${i.color}bb">
+                <span>${(+i.pct).toFixed(1)}%</span>
+              </div>
+            </div>
+            <span class="perfil-genero-n">${i.n}</span>
+          </div>`).join('')}
+        <div style="margin-top:0.85rem;font-size:0.72rem;color:var(--text-muted)">
+          Total analisados: <strong style="color:var(--text)">${n_tot}</strong>
+        </div>
+      </div>`;
+    }
+  } else {
+    generoCard.style.display = 'none';
+  }
+
+  /* ── Helper: horizontal bars ── */
+  function renderHBars(elId, items, keyLabel, keyN, keyPct) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (!items || items.length === 0) {
+      el.closest('.card').style.display = 'none';
+      return;
+    }
+    const maxPct = Math.max(...items.map(i => i[keyPct] || 0)) || 1;
+    el.innerHTML = `<div class="perfil-hbar-list">
+      ${items.slice(0, 8).map(i => `
+        <div class="perfil-hbar-item">
+          <div class="perfil-hbar-lbl" title="${i[keyLabel]}">${i[keyLabel]}</div>
+          <div class="perfil-hbar-track">
+            <div class="perfil-hbar-fill" style="width:${Math.max(i[keyPct]/maxPct*100,4).toFixed(1)}%">
+              <span>${(+i[keyPct]).toFixed(1)}%</span>
+            </div>
+          </div>
+          <span class="perfil-hbar-n">${i[keyN]}</span>
+        </div>`).join('')}
+    </div>`;
+  }
+
+  renderHBars('perfil-area-content',   perfil.area,   'area',   'n', 'pct');
+  renderHBars('perfil-filial-content', perfil.filial, 'filial', 'n', 'pct');
+
+  /* ── Chips de contexto ── */
+  const metaRow = document.getElementById('perfil-meta-row');
+  const chips   = [];
+
+  if (perfil.com_digai_pct != null) {
+    chips.push(`<div class="perfil-meta-chip">
+      <div class="kpi-label">Contratados via DigAI</div>
+      <div class="kpi-value" style="color:var(--teal)">${perfil.com_digai_pct}%</div>
+      <div class="kpi-sub">${perfil.com_digai_n || 0} de ${n_tot} contratados</div>
+    </div>`);
+  }
+  if (perfil.sla_contratacao) {
+    chips.push(`<div class="perfil-meta-chip">
+      <div class="kpi-label">SLA Médio de Contratação</div>
+      <div class="kpi-value" style="color:var(--teal)">${fmt.days(perfil.sla_contratacao.media)}</div>
+      <div class="kpi-sub">mediana: ${fmt.days(perfil.sla_contratacao.mediana)}</div>
+    </div>`);
+  }
+  if (perfil.score) {
+    chips.push(`<div class="perfil-meta-chip">
+      <div class="kpi-label">Score Médio Contratados</div>
+      <div class="kpi-value" style="color:var(--teal)">${perfil.score.media ?? 'N/A'}</div>
+      <div class="kpi-sub">p25: ${perfil.score.p25} · p75: ${perfil.score.p75}</div>
+    </div>`);
+  }
+
+  if (chips.length) metaRow.innerHTML = chips.join('');
+  else metaRow.style.display = 'none';
+})();
+
+/* ── 8. MAPA DE VAGAS — nome completo + sortável ── */
+(function() {
+  const vagas = DATA.mapa_vagas || [];
+  const wrap  = document.getElementById('bloco-vagas-wrap');
+
+  if (vagas.length < 3) {
+    wrap.innerHTML = `<div class="section-question">Quais vagas estão performando melhor?</div>
+      <div class="section-title">Mapa de Vagas</div>` +
+      emptyState('📋','Dado não disponível','Mapa de vagas requer pelo menos 3 vagas ativas no período.');
+    return;
+  }
+
+  let sortKey = 'contratados', sortDir = -1;
+  window._vagasData = [...vagas];
+
+  window.sortVagas = function(key) {
+    if (sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = -1; }
+    renderVagas();
+  };
+
+  function renderVagas() {
+    const sorted = [...window._vagasData].sort((a, b) => {
+      const av = a[sortKey], bv = b[sortKey];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1; if (bv == null) return -1;
+      if (typeof av === 'string') return sortDir * av.localeCompare(bv);
+      return sortDir * ((+av) - (+bv));
+    });
+
+    ['vaga','contratados','assertividade','adesao','sla_medio'].forEach(k => {
+      const th = document.getElementById('th-'+k);
+      if (!th) return;
+      th.classList.toggle('sorted', k === sortKey);
+      const si = th.querySelector('.si');
+      if (si) si.textContent = k===sortKey ? (sortDir===-1?'↓':'↑') : '↕';
+    });
+
+    document.getElementById('vagas-tbody').innerHTML = sorted.map(v => `<tr>
+      <td style="font-weight:500">${v.vaga || '—'}</td>
+      <td><strong style="color:var(--teal)">${fmt.num(v.contratados)}</strong></td>
+      <td><span style="color:${(v.assertividade||0)>=5?C.success:C.muted}">${v.assertividade!=null?v.assertividade+'%':'—'}</span></td>
+      <td>${v.adesao!=null?v.adesao+'%':'—'}</td>
+      <td>${v.sla_medio!=null?v.sla_medio+' dias':'—'}</td>
+    </tr>`).join('');
+  }
+  renderVagas();
+})();
+
+/* ── 9. STATUS DOS CANDIDATOS + FUNIL DETALHADO ── */
+(function() {
+  const fd = DATA.funil_din && DATA.funil_din.length > 0 ? DATA.funil_din : DATA.funil;
+
+  /* Status — ordem narrativa positiva: Contratado → Em processo → Reprovado → Desistiu */
+  const STATUS_ORDER = ['Contratado','Em processo','Reprovado','Desistiu','TOTAL'];
+  const statusSorted = [...DATA.status].sort((a,b) => {
+    const ai = STATUS_ORDER.indexOf(a.status), bi = STATUS_ORDER.indexOf(b.status);
+    return (ai===-1?99:ai) - (bi===-1?99:bi);
+  });
+
+  document.getElementById('table-status').innerHTML = `
+    <thead><tr>
+      <th>Status</th><th>Com DigAI</th><th>% grupo</th>
+      <th>Sem DigAI</th><th>% grupo</th><th>Δ pp</th>
+    </tr></thead>
+    <tbody>${statusSorted.map(r => {
+      const flip = r.status==='Reprovado' || r.status==='Desistiu';
+      return `<tr class="${r.status==='TOTAL'?'total-row':''}">
+        <td style="font-weight:600">${r.status}</td>
+        <td>${fmt.num(r.com_digai)}</td>
+        <td>${fmt.pct(r.pct_com)}</td>
+        <td>${fmt.num(r.sem_digai)}</td>
+        <td>${fmt.pct(r.pct_sem)}</td>
+        <td>${deltaPP(r.delta_pp, flip)}</td>
+      </tr>`;
+    }).join('')}</tbody>`;
+
+  document.getElementById('table-funil').innerHTML = `
+    <thead><tr>
+      <th>Etapa</th><th>Com DigAI</th><th>%</th>
+      <th>Sem DigAI</th><th>%</th><th>Drop-off</th>
+    </tr></thead>
+    <tbody>${fd.map(r => `<tr>
+      <td>${r.etapa}</td>
+      <td style="color:var(--teal);font-weight:600">${fmt.num(r.com_digai)}</td>
+      <td>${fmt.pct(r.pct_com)}</td>
+      <td>${fmt.num(r.sem_digai)}</td>
+      <td>${fmt.pct(r.pct_sem)}</td>
+      <td>${r.dropoff_com!=null?badge(r.dropoff_com,'%'):'<span style="color:var(--text-muted)">— base</span>'}</td>
+    </tr>`).join('')}</tbody>`;
+})();
+
+/* ── 10. SLA E TEMPO POR ETAPA — tags de impacto ── */
+(function() {
+  const tempos = DATA.tempos_din && DATA.tempos_din.length > 0 ? DATA.tempos_din : DATA.tempos;
+
+  function impactTag(r) {
+    const com = r.com_digai, sem = r.sem_digai;
+    if (com == null || com === 0) return '<span class="tag exclusive" title="Etapa exclusiva DigAI — sem comparativo possível no fluxo tradicional">Etapa exclusiva</span>';
+    if (sem == null || sem === 0) return '<span class="tag exclusive" title="Etapa exclusiva DigAI — sem comparativo possível no fluxo tradicional">Sem comparativo</span>';
+    if (com < sem) return '<span class="tag faster">▲ DigAI mais rápida</span>';
+    if (com > sem) return '<span class="tag slower">▼ DigAI mais lenta</span>';
+    return '<span class="tag exclusive">Tempo igual</span>';
+  }
+
+  document.getElementById('table-tempo').innerHTML = `
+    <thead><tr>
+      <th>Etapa</th><th>Com DigAI (dias)</th><th>Sem DigAI (dias)</th>
+      <th>Diferença</th><th>Impacto</th>
+    </tr></thead>
+    <tbody>${tempos.map(r => `<tr>
+      <td>${r.etapa}</td>
+      <td style="color:var(--teal);font-weight:600">${r.com_digai??'N/A'}</td>
+      <td style="color:var(--text-muted)">${r.sem_digai??'N/A'}</td>
+      <td>${r.diferenca!=null?badge(r.diferenca,' dias',true):'—'}</td>
+      <td>${impactTag(r)}</td>
+    </tr>`).join('')}</tbody>`;
+})();
+
+/* ── 11. COMPARATIVO DE PERÍODOS ── */
+(function() {
+  const periodos = DATA.periodo_comparativo || [];
+  const el = document.getElementById('bloco-periodo-content');
+
+  if (periodos.length < 2) {
+    el.innerHTML = `<div style="background:var(--bg-card);border:1px dashed var(--border);border-radius:var(--radius);padding:2rem;text-align:center;color:var(--text-muted);font-size:0.85rem">
+      Comparativo temporal requer pelo menos 14 dias de dados ou 2 períodos distintos.
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = `<div class="card"><div class="card-title">Evolução — Contratações e Assertividade</div>
+    <div style="position:relative;height:280px"><canvas id="chart-periodo"></canvas></div></div>`;
+
+  new Chart(document.getElementById('chart-periodo'), {
+    data: {
+      labels: periodos.map(p=>p.periodo),
+      datasets: [
+        { type:'bar',  label:'Contratações', data:periodos.map(p=>p.contratados), backgroundColor:C.comDigai+'aa', borderRadius:4, yAxisID:'y' },
+        { type:'line', label:'Assertividade (%)', data:periodos.map(p=>p.assertividade), borderColor:C.success, backgroundColor:C.success+'22', fill:false, tension:0.3, pointRadius:4, yAxisID:'y1' },
+      ],
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:C.text, font:{size:11} } } },
+      scales:{
+        x:  { ticks:{color:C.muted}, grid:{color:'rgba(255,255,255,0.04)'} },
+        y:  { position:'left',  ticks:{color:C.muted}, grid:{color:'rgba(255,255,255,0.04)'}, title:{display:true,text:'Contratações',color:C.muted,font:{size:10}} },
+        y1: { position:'right', ticks:{color:C.success,callback:v=>v+'%'}, grid:{drawOnChartArea:false}, title:{display:true,text:'Assertividade',color:C.success,font:{size:10}} },
+      },
+    },
+  });
+})();
+
+/* ── 12. ORIGEM DOS CANDIDATOS ── */
+(function() {
+  const origem = DATA.origem_candidatos || [];
+  if (!origem.length) return;
+  document.getElementById('bloco-origem-wrap').style.display = 'block';
+
+  // Filtra "Sem DDD" / "Sem Estado" para tabela principal
+  const validos  = origem.filter(r => !['Sem DDD','Sem Estado','Outro',''].includes(r.uf));
+  const invalidos = origem.filter(r => ['Sem DDD','Sem Estado','Outro'].includes(r.uf));
+  const top10    = validos.slice(0, 10);
+  const outrosArr = validos.slice(10).concat(invalidos);
+  const totalOutros = outrosArr.reduce((s,r)=>s+r.total,0);
+  const pctOutros   = outrosArr.reduce((s,r)=>s+r.pct,0);
+
+  let rows = top10.map((r,i) => `<tr>
+    <td style="font-weight:700;color:var(--teal)">${r.uf}</td>
+    <td>${r.nome}</td>
+    <td>${fmt.num(r.total)}</td>
+    <td>
+      <div style="display:flex;align-items:center;gap:0.4rem">
+        <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:2px;height:8px;min-width:60px">
+          <div style="width:${Math.min(r.pct,100).toFixed(1)}%;height:100%;background:#2563EB;border-radius:2px;opacity:${0.5+0.5*(i===0?1:r.pct/top10[0].pct)}"></div>
+        </div>
+        <span style="font-size:0.8rem;font-weight:600;min-width:38px;text-align:right">${r.pct.toFixed(1)}%</span>
+      </div>
+    </td>
+  </tr>`).join('');
+  if (totalOutros > 0) {
+    rows += `<tr style="color:var(--text-muted);font-style:italic">
+      <td>…</td><td>Outros (${outrosArr.length} UFs)</td>
+      <td>${fmt.num(totalOutros)}</td><td><span style="font-size:0.8rem">${pctOutros.toFixed(1)}%</span></td>
+    </tr>`;
+  }
+
+  document.getElementById('table-origem').innerHTML = `
+    <thead><tr><th>UF</th><th>Estado</th><th>Candidatos</th><th>% do Total</th></tr></thead>
+    <tbody>${rows}</tbody>`;
+
+  /* ── Mapa D3 do Brasil — choropleth real ── */
+  const byUF = {};
+  validos.forEach(r => { byUF[r.uf] = r; });
+  const maxPct = Math.max(...validos.map(r => r.pct), 1);
+
+  function renderBrasilMap(geoData) {
+    const svg     = document.getElementById('brasil-svg');
+    const W       = svg.clientWidth  || 480;
+    const H       = svg.clientHeight || 380;
+    const tooltip = document.getElementById('map-tooltip');
+    const ttUF    = document.getElementById('map-tooltip-uf');
+    const ttInfo  = document.getElementById('map-tooltip-info');
+    const mapWrap = document.getElementById('brasil-map-wrap');
+
+    // Projeção Mercator centrada no Brasil
+    const proj = d3.geoMercator().fitSize([W, H], geoData);
+    const path = d3.geoPath().projection(proj);
+
+    const svgEl = d3.select('#brasil-svg');
+    svgEl.selectAll('*').remove();
+
+    // Sombra para profundidade
+    const defs = svgEl.append('defs');
+    const filter = defs.append('filter').attr('id','drop-shadow');
+    filter.append('feDropShadow').attr('dx',0).attr('dy',2).attr('stdDeviation',3).attr('flood-color','rgba(0,0,0,0.5)');
+
+    svgEl.append('g')
+      .attr('filter','url(#drop-shadow)')
+      .selectAll('path')
+      .data(geoData.features)
+      .enter().append('path')
+        .attr('d', path)
+        .attr('data-uf', d => d.properties.uf)
+        .attr('fill', d => {
+          const uf = d.properties.uf;
+          const info = byUF[uf];
+          if (!info) return 'rgba(255,255,255,0.05)';
+          const ratio = info.pct / maxPct;
+          const alpha = 0.15 + ratio * 0.85;
+          return `rgba(37,99,235,${alpha.toFixed(2)})`;
+        })
+        .attr('stroke', '#0d1b2e')
+        .attr('stroke-width', 0.8)
+        .style('cursor', d => byUF[d.properties.uf] ? 'pointer' : 'default')
+        .style('transition', 'fill 0.15s')
+        .on('mouseenter', function(event, d) {
+          const uf   = d.properties.uf;
+          const info = byUF[uf];
+          if (!info) return;
+          d3.select(this).attr('fill', 'rgba(0,202,243,0.75)');
+          ttUF.textContent = `${uf} — ${d.properties.nome}`;
+          ttInfo.innerHTML = `${fmt.num(info.total)} candidatos<br>${info.pct.toFixed(1)}% do total`;
+          tooltip.style.display = 'block';
+        })
+        .on('mousemove', function(event) {
+          const rect = mapWrap.getBoundingClientRect();
+          tooltip.style.left = (event.clientX - rect.left + 12) + 'px';
+          tooltip.style.top  = (event.clientY - rect.top  + 12) + 'px';
+        })
+        .on('mouseleave', function(event, d) {
+          const uf   = d.properties.uf;
+          const info = byUF[uf];
+          const alpha = info ? (0.15 + (info.pct/maxPct)*0.85) : 0.05;
+          const fill  = info ? `rgba(37,99,235,${alpha.toFixed(2)})` : 'rgba(255,255,255,0.05)';
+          d3.select(this).attr('fill', fill);
+          tooltip.style.display = 'none';
+        });
+
+    // Labels UF sobre os estados
+    svgEl.append('g')
+      .selectAll('text')
+      .data(geoData.features)
+      .enter().append('text')
+        .attr('transform', d => {
+          const c = path.centroid(d);
+          return isNaN(c[0]) ? null : `translate(${c})`;
+        })
+        .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'middle')
+        .attr('fill', d => byUF[d.properties.uf] ? '#ffffff' : 'rgba(255,255,255,0.3)')
+        .attr('font-size', d => {
+          // estados pequenos: fonte menor
+          const small = ['AL','SE','ES','RJ','DF','PB','RN'];
+          return small.includes(d.properties.uf) ? '7px' : '9px';
+        })
+        .attr('font-weight', '700')
+        .attr('font-family', 'sans-serif')
+        .attr('pointer-events', 'none')
+        .text(d => d.properties.uf);
+  }
+
+  // GeoJSON local: props.UF = sigla, props.ESTADO = nome completo
+  fetch('/static/brasil.geojson')
+    .then(r => r.json())
+    .then(geo => {
+      if (typeof d3 === 'undefined') return;
+      // Normaliza para uf/nome usados em renderBrasilMap
+      geo.features.forEach(f => {
+        f.properties.uf   = f.properties.UF    || f.properties.uf   || '';
+        f.properties.nome = f.properties.ESTADO || f.properties.nome || f.properties.uf;
+      });
+      renderBrasilMap(geo);
+      let resizeTimer;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => renderBrasilMap(geo), 200);
+      });
+    })
+    .catch(() => {
+      document.getElementById('brasil-map-wrap').style.display = 'none';
+    });
+})();
+
+/* ── 13. DIAGNÓSTICO GERAL ── */
+(function() {
+  const ins  = DATA.insights || {};
+  const card = document.getElementById('veredicto-card');
+  const cor  = ins.cor_veredicto || '#64748B';
+  card.innerHTML = `
+    <div>
+      <div class="veredicto-badge" style="background:${cor}22;color:${cor};border:1px solid ${cor}44">
+        ${ins.veredicto || 'Em análise'}
+      </div>
+    </div>
+    <div class="insights-col">
+      <h4>Pontos Positivos</h4>
+      <ul>${(ins.pontos_positivos||[]).map(p=>`<li data-icon="✅">${p}</li>`).join('')||'<li data-icon="—">Nenhum ponto positivo identificado</li>'}</ul>
+    </div>
+    <div class="insights-col">
+      <h4>Pontos de Atenção</h4>
+      <ul>${(ins.pontos_atencao||[]).map(p=>`<li data-icon="⚠️">${p}</li>`).join('')||'<li data-icon="—">Nenhum ponto de atenção</li>'}</ul>
+    </div>`;
+})();
+
+/* ── Resumo para Compartilhamento ── */
+(function() {
+  const n = DATA.narrativa || {};
+  const linhas = [
+    `Relatório DigAI — ${DATA.meta.cliente} | ${DATA.meta.periodo}`, '',
+    n.historia || '', '', 'Destaques do período:',
+    ...(n.destaques||[]).map(d=>'  • '+d),
+  ];
+  if (n.oportunidades && n.oportunidades.length) { linhas.push('','Oportunidades:'); n.oportunidades.forEach(o=>linhas.push('  • '+o)); }
+  linhas.push('', `Gerado em ${DATA.meta.gerado_em} via DigAI (digai.ai)`);
+  document.getElementById('compartilhar-texto').textContent = linhas.join('\n');
+})();
+
+function copiarResumo() {
+  navigator.clipboard.writeText(document.getElementById('compartilhar-texto').textContent)
+    .then(() => { const b=document.querySelector('.btn-copy'),o=b.textContent; b.textContent='✓ Copiado!'; setTimeout(()=>b.textContent=o,2000); });
+}
+
+/* ── Logo ── */
+function handleLogoUpload(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('logo-img');
+    img.src = e.target.result; img.style.display = 'block';
+    document.getElementById('logo-text').style.display = 'none';
+    localStorage.setItem('digai_logo_'+DATA.meta.cliente, e.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+(function() {
+  const src = localStorage.getItem('digai_logo_'+DATA.meta.cliente) || DATA.meta.logo_url;
+  if (src) { document.getElementById('logo-img').src=src; document.getElementById('logo-img').style.display='block'; document.getElementById('logo-text').style.display='none'; }
+})();
+
+/* ── Download Excel ── */
+function downloadExcel() {
+  const sid = DATA._share_id;
+  const fname = `DigAI_${DATA.meta.cliente}_${DATA.meta.periodo.replace(/\//g,'-')}.xlsx`;
+  if (sid) {
+    fetch(`/d/${sid}.xlsx`,{method:'HEAD'})
+      .then(r => { if(r.ok){const a=document.createElement('a');a.href=`/d/${sid}.xlsx`;a.download=fname;a.click();}else downloadExcelFallback(); })
+      .catch(()=>downloadExcelFallback());
+  } else downloadExcelFallback();
+}
+
+function downloadExcelFallback() {
+  const wb  = XLSX.utils.book_new();
+  const com = DATA.kpis['Com DigAI'], sem = DATA.kpis['Sem DigAI'];
+  const roi = DATA.roi, d = DATA.kpis.delta;
+  const fd  = DATA.funil_din && DATA.funil_din.length>0 ? DATA.funil_din : DATA.funil;
+  const td  = DATA.tempos_din && DATA.tempos_din.length>0 ? DATA.tempos_din : DATA.tempos;
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['DigAI — Indicadores de Performance'],
+    ['Cliente:',DATA.meta.cliente],['Período:',DATA.meta.periodo],['Gerado em:',DATA.meta.gerado_em],[],
+    ['Savings DigAI',roi.savings],['ROI DigAI',roi.roi+'x'],[],
+    ['KPI','Sem DigAI','Com DigAI','Diferença'],
+    ['Adesão',fmt.pct(sem.adesao*100),fmt.pct(com.adesao*100),(d.adesao||0)+' pp'],
+    ['Assertividade',sem.assertividade,com.assertividade,''],
+    ['SLA (dias)',sem.sla_media,com.sla_media,d.sla],
+    ['Contratações',sem.contratados,com.contratados,d.contratacoes],
+  ]), 'Sumário');
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['Calculadora ROI'],[],
+    ['Salário TA CLT',roi.salario_ta_clt],['Mensalidade DigAI',roi.mensalidade_digai],
+    ['Entrevistas IA',roi.total_entrevistas_ia],['Custo/EI TA',roi.custo_por_entrevista_ta],
+    ['Custo/EI IA',roi.custo_por_entrevista_ia],['Economia/EI',roi.economia_por_entrevista],[],
+    ['SAVINGS',roi.savings],['ROI',roi.roi+'x'],
+  ]), 'ROI');
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['Etapa','Com DigAI','% total','Sem DigAI','% total','Drop-off'],
+    ...fd.map(r=>[r.etapa,r.com_digai,r.pct_com+'%',r.sem_digai,r.pct_sem+'%',r.dropoff_com!=null?r.dropoff_com+'%':'Base']),
+  ]), 'Funil');
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ['Status','Com DigAI','%','Sem DigAI','%','Δpp'],
+    ...DATA.status.map(r=>[r.status,r.com_digai,r.pct_com+'%',r.sem_digai,r.pct_sem+'%',r.delta_pp]),
+    [],['Etapa','Com DigAI (dias)','Sem DigAI (dias)','Diferença','Impacto'],
+    ...td.map(r=>[r.etapa,r.com_digai,r.sem_digai,r.diferenca,r.impacto]),
+  ]), 'Pivot');
+
+  XLSX.writeFile(wb, `DigAI_${DATA.meta.cliente}_${DATA.meta.periodo.replace(/\//g,'-')}.xlsx`);
+}
+</script>
+
+<!-- D3.js para o mapa choropleth e evolução DigAI -->
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+
+<script>
+/* ── Evolução DigAI ─────────────────────────────────────────────────────── */
+(function() {
+  // HISTORICO é array de snapshots de relatórios anteriores do mesmo cliente
+  // O relatório atual é adicionado como último ponto
+  const hist = Array.isArray(HISTORICO) ? HISTORICO : [];
+
+  // Monta série completa: histórico + ponto atual
+  const currentSnap = {
+    periodo:         DATA.meta ? DATA.meta.periodo : '—',
+    criado_em:       DATA.meta ? DATA.meta.gerado_em : '',
+    url:             '',
+    share_id:        DATA._share_id || '',
+    total_com:       DATA.kpis && DATA.kpis['Com DigAI'] ? DATA.kpis['Com DigAI'].total : 0,
+    total_sem:       DATA.kpis && DATA.kpis['Sem DigAI'] ? DATA.kpis['Sem DigAI'].total : 0,
+    contratados_com: DATA.kpis && DATA.kpis['Com DigAI'] ? DATA.kpis['Com DigAI'].contratados : 0,
+    contratados_sem: DATA.kpis && DATA.kpis['Sem DigAI'] ? DATA.kpis['Sem DigAI'].contratados : 0,
+    taxa_com:        DATA.kpis && DATA.kpis['Com DigAI'] ? +(DATA.kpis['Com DigAI'].taxa_contratacao * 100).toFixed(2) : 0,
+    taxa_sem:        DATA.kpis && DATA.kpis['Sem DigAI'] ? +(DATA.kpis['Sem DigAI'].taxa_contratacao * 100).toFixed(2) : 0,
+    adesao_pct:      DATA.kpis && DATA.kpis['Com DigAI'] ? +(DATA.kpis['Com DigAI'].adesao * 100).toFixed(2) : 0,
+    savings:         DATA.roi ? DATA.roi.savings : 0,
+    roi:             DATA.roi ? DATA.roi.roi : 0,
+    _current:        true,
+  };
+
+  const series = [...hist, currentSnap];
+
+  if (series.length < 2) return; // nada a exibir com menos de 2 pontos
+
+  document.getElementById('evolucao-section').style.display = '';
+
+  const metricMeta = {
+    taxa_com:   { label: 'Taxa Contratação (%)', fmt: v => v != null ? v.toFixed(2) + '%' : '—' },
+    adesao_pct: { label: 'Adesão (%)',           fmt: v => v != null ? v.toFixed(2) + '%' : '—' },
+    savings:    { label: 'Savings (R$)',          fmt: v => v != null ? 'R$' + Number(v).toLocaleString('pt-BR') : '—' },
+    roi:        { label: 'ROI (x)',               fmt: v => v != null ? v + 'x' : '—' },
+  };
+
+  let activeMetric = 'taxa_com';
+
+  // ── Tabela ────────────────────────────────────────────────────────────────
+  function renderTable() {
+    const tbody = document.getElementById('ev-tbody');
+    tbody.innerHTML = '';
+    series.forEach((row, i) => {
+      const prev = i > 0 ? series[i - 1] : null;
+      const cur  = row.taxa_com != null ? +row.taxa_com : null;
+      const prv  = prev && prev.taxa_com != null ? +prev.taxa_com : null;
+      let deltaHtml = '<span class="ev-delta-neu">—</span>';
+      if (cur != null && prv != null) {
+        const diff = cur - prv;
+        const cls  = diff > 0 ? 'ev-delta-pos' : diff < 0 ? 'ev-delta-neg' : 'ev-delta-neu';
+        const sign = diff > 0 ? '+' : '';
+        deltaHtml  = `<span class="${cls}">${sign}${diff.toFixed(2)}pp</span>`;
+      }
+      const tr = document.createElement('tr');
+      if (row._current) tr.classList.add('current');
+      const savFmt = row.savings != null ? 'R$' + Number(row.savings).toLocaleString('pt-BR') : '—';
+      const roiFmt = row.roi != null ? row.roi + 'x' : '—';
+      tr.innerHTML = `
+        <td>${row.periodo}${row._current ? ' <strong>(atual)</strong>' : ''}</td>
+        <td>${row.contratados_com != null ? row.contratados_com : '—'}</td>
+        <td>${row.taxa_com != null ? row.taxa_com + '%' : '—'}</td>
+        <td>${row.adesao_pct != null ? row.adesao_pct + '%' : '—'}</td>
+        <td>${savFmt}</td>
+        <td>${roiFmt}</td>
+        <td>${deltaHtml}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ── Gráfico D3 ────────────────────────────────────────────────────────────
+  function renderChart(metric) {
+    const svgEl = document.getElementById('evolucao-svg');
+    svgEl.innerHTML = '';
+
+    const margin = { top: 20, right: 30, bottom: 50, left: 60 };
+    const W = svgEl.clientWidth || svgEl.parentElement.clientWidth || 600;
+    const H = 260;
+    const w = W - margin.left - margin.right;
+    const h = H - margin.top - margin.bottom;
+
+    const svg = d3.select('#evolucao-svg')
+      .attr('viewBox', `0 0 ${W} ${H}`)
+      .attr('preserveAspectRatio', 'xMidYMid meet');
+
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+    const vals  = series.map(d => d[metric] != null ? +d[metric] : 0);
+    const xScale = d3.scalePoint().domain(series.map(d => d.periodo)).range([0, w]).padding(0.3);
+    const yMin   = Math.min(...vals) * 0.85;
+    const yMax   = Math.max(...vals) * 1.15 || 1;
+    const yScale = d3.scaleLinear().domain([yMin < 0 ? yMin : 0, yMax]).range([h, 0]);
+
+    // Axes
+    g.append('g').attr('transform', `translate(0,${h})`)
+      .call(d3.axisBottom(xScale))
+      .selectAll('text')
+        .style('fill', '#94A3B8').style('font-size', '0.72rem')
+        .attr('dy', '1.2em');
+    g.selectAll('.domain, .tick line').style('stroke', '#334155');
+
+    g.append('g')
+      .call(d3.axisLeft(yScale).ticks(5).tickFormat(v => metricMeta[metric].fmt(v).replace('R$','').replace(' ','').split(',')[0]))
+      .selectAll('text').style('fill', '#94A3B8').style('font-size', '0.7rem');
+
+    // Gridlines
+    g.append('g').selectAll('line.grid')
+      .data(yScale.ticks(5))
+      .enter().append('line')
+        .attr('x1', 0).attr('x2', w)
+        .attr('y1', d => yScale(d)).attr('y2', d => yScale(d))
+        .style('stroke', 'rgba(255,255,255,0.05)').style('stroke-dasharray', '3,3');
+
+    // Line
+    const line = d3.line()
+      .x(d => xScale(d.periodo))
+      .y(d => yScale(d[metric] != null ? +d[metric] : 0))
+      .curve(d3.curveMonotoneX);
+
+    g.append('path')
+      .datum(series)
+      .attr('fill', 'none')
+      .attr('stroke', '#2563EB')
+      .attr('stroke-width', 2.5)
+      .attr('d', line);
+
+    // Points + tooltip
+    const tooltip = d3.select('body').select('#ev-tooltip').node()
+      ? d3.select('#ev-tooltip')
+      : d3.select('body').append('div')
+          .attr('id', 'ev-tooltip')
+          .style('position','fixed').style('background','#0f172a')
+          .style('color','#f1f5f9').style('padding','0.6rem 1rem')
+          .style('border-radius','8px').style('font-size','0.78rem')
+          .style('pointer-events','none').style('display','none')
+          .style('border','1px solid #334155').style('z-index','9999');
+
+    g.selectAll('circle').data(series).enter().append('circle')
+      .attr('cx', d => xScale(d.periodo))
+      .attr('cy', d => yScale(d[metric] != null ? +d[metric] : 0))
+      .attr('r', d => d._current ? 7 : 5)
+      .attr('fill', d => d._current ? '#00caf3' : '#2563EB')
+      .attr('stroke', '#0f172a').attr('stroke-width', 2)
+      .on('mouseover', function(event, d) {
+        tooltip.style('display','block')
+          .html(`<strong>${d.periodo}</strong><br>${metricMeta[metric].label}: ${metricMeta[metric].fmt(d[metric])}`);
+      })
+      .on('mousemove', function(event) {
+        tooltip.style('left', (event.clientX + 14) + 'px').style('top', (event.clientY - 28) + 'px');
+      })
+      .on('mouseout', function() { tooltip.style('display','none'); });
+  }
+
+  // ── Init ─────────────────────────────────────────────────────────────────
+  renderTable();
+  // D3 may not be available yet — defer chart until D3 is loaded
+  function tryRenderChart() {
+    if (typeof d3 !== 'undefined') {
+      renderChart(activeMetric);
+    } else {
+      setTimeout(tryRenderChart, 50);
+    }
+  }
+  tryRenderChart();
+
+  // Tab switching
+  document.getElementById('ev-tabs').addEventListener('click', function(e) {
+    const btn = e.target.closest('.ev-tab');
+    if (!btn) return;
+    document.querySelectorAll('.ev-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeMetric = btn.dataset.metric;
+    renderChart(activeMetric);
+  });
+})();
+</script>
+
+<!-- ── Chat IA ── -->
+<style>
+#chat-fab {
+  position:fixed;bottom:2rem;right:2rem;width:56px;height:56px;border-radius:50%;
+  background:linear-gradient(135deg,#2563EB,#00caf3);border:none;cursor:pointer;
+  box-shadow:0 4px 20px rgba(37,99,235,0.5);z-index:1000;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.4rem;transition:transform 0.2s,box-shadow 0.2s;
+}
+#chat-fab:hover{transform:scale(1.08);box-shadow:0 6px 28px rgba(37,99,235,0.7)}
+#chat-panel {
+  position:fixed;bottom:5.5rem;right:2rem;width:520px;max-height:700px;
+  background:#f0f4f9;border:none;border-radius:18px;
+  box-shadow:0 12px 48px rgba(0,0,0,0.35);z-index:999;
+  display:none;flex-direction:column;overflow:hidden;
+}
+#chat-panel.open{display:flex}
+#chat-header {
+  padding:0.9rem 1.2rem;background:linear-gradient(90deg,#1a3461,#1e4080);
+  display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+}
+#chat-header h4{margin:0;font-size:0.9rem;color:#ffffff;font-weight:700;letter-spacing:.02em}
+#chat-header span{font-size:0.72rem;color:rgba(255,255,255,0.6);margin-top:2px;display:block}
+#chat-close{background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:1.1rem;padding:0;transition:color .15s}
+#chat-close:hover{color:#fff}
+#chat-messages {
+  flex:1;overflow-y:auto;padding:1.1rem;display:flex;flex-direction:column;gap:0.8rem;
+  background:#f0f4f9;
+  scrollbar-width:thin;scrollbar-color:rgba(0,0,0,0.15) transparent;
+}
+/* Mensagem do usuário — azul sólido */
+.chat-msg.user {
+  align-self:flex-end;max-width:82%;
+  background:#2563EB;color:#ffffff;
+  border-radius:16px 16px 4px 16px;
+  padding:0.7rem 1rem;font-size:0.84rem;line-height:1.55;
+  box-shadow:0 2px 8px rgba(37,99,235,0.3);
+}
+/* Mensagem da IA — branco com borda sutil */
+.chat-msg.ai {
+  align-self:flex-start;max-width:90%;
+  background:#ffffff;color:#1a2b45;
+  border-radius:4px 16px 16px 16px;
+  padding:0.85rem 1.1rem;font-size:0.84rem;line-height:1.65;
+  box-shadow:0 2px 10px rgba(0,0,0,0.1);
+  border-left:3px solid #2563EB;
+}
+.chat-msg.ai strong{color:#1a3461}
+.chat-msg.ai em{color:#475569;font-style:normal;font-weight:500}
+/* Loading dots */
+.chat-msg.ai.loading{color:#94a3b8;border-left-color:#cbd5e1}
+.chat-dots span{animation:chat-blink 1.2s infinite;opacity:0;font-size:1.4rem;line-height:1}
+.chat-dots span:nth-child(2){animation-delay:.2s}
+.chat-dots span:nth-child(3){animation-delay:.4s}
+@keyframes chat-blink{0%,80%,100%{opacity:0}40%{opacity:1}}
+/* Sugestões */
+.chat-suggestions{display:flex;flex-wrap:wrap;gap:0.4rem;padding:0 1rem 0.8rem;background:#f0f4f9;flex-shrink:0}
+.chat-sug {
+  font-size:0.73rem;background:#ffffff;border:1px solid #cbd5e1;
+  color:#2563EB;border-radius:20px;padding:0.28rem 0.7rem;cursor:pointer;
+  transition:all 0.15s;white-space:nowrap;font-weight:500;
+}
+.chat-sug:hover{background:#2563EB;color:#fff;border-color:#2563EB}
+/* Input row */
+#chat-input-row {
+  display:flex;gap:0.5rem;padding:0.8rem;border-top:1px solid #dde4ef;
+  background:#ffffff;flex-shrink:0;
+}
+#chat-input {
+  flex:1;background:#f8fafc;border:1.5px solid #dde4ef;border-radius:10px;
+  color:#1a2b45;padding:0.55rem 0.85rem;font-size:0.84rem;outline:none;resize:none;
+  font-family:inherit;transition:border-color .15s;
+}
+#chat-input:focus{border-color:#2563EB;background:#ffffff}
+#chat-input::placeholder{color:#94a3b8}
+#chat-send {
+  background:#2563EB;border:none;color:#fff;border-radius:10px;padding:0.55rem 1rem;
+  cursor:pointer;font-size:0.84rem;font-weight:600;white-space:nowrap;
+  transition:background 0.15s;letter-spacing:.02em;
+}
+#chat-send:hover{background:#1d4ed8}
+#chat-send:disabled{background:#cbd5e1;cursor:wait;color:#94a3b8}
+</style>
+
+<!-- Botão flutuante -->
+<button id="chat-fab" onclick="toggleChat()" title="Analisar dados com IA">✦</button>
+
+<!-- Painel de chat -->
+<div id="chat-panel">
+  <div id="chat-header">
+    <div>
+      <h4>Assistente DigAI</h4>
+      <span>Análise inteligente dos seus dados</span>
+    </div>
+    <button id="chat-close" onclick="toggleChat()">✕</button>
+  </div>
+  <div id="chat-messages">
+    <div class="chat-msg ai">
+      Sou a IA Analítica do DigAI. Tenho acesso completo aos dados deste relatório — KPIs, ROI, funil, tempos e perfil de candidatos. Faça sua pergunta.
+    </div>
+  </div>
+  <div class="chat-suggestions">
+    <span class="chat-sug" onclick="sendSuggestion(this)">Qual o impacto do DigAI nas contratações?</span>
+    <span class="chat-sug" onclick="sendSuggestion(this)">Como melhorar o ROI?</span>
+    <span class="chat-sug" onclick="sendSuggestion(this)">Quais vagas têm melhor desempenho?</span>
+    <span class="chat-sug" onclick="sendSuggestion(this)">Análise do perfil dos contratados</span>
+  </div>
+  <div id="chat-input-row">
+    <textarea id="chat-input" rows="1" placeholder="Pergunte sobre os dados..." onkeydown="handleChatKey(event)"></textarea>
+    <button id="chat-send" onclick="sendChat()">Enviar</button>
+  </div>
+</div>
+
+<script>
+/* ── Chat IA ── */
+const _chatHistory = [];  // histórico para contexto multi-turno
+
+function toggleChat() {
+  const panel = document.getElementById('chat-panel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) document.getElementById('chat-input').focus();
+}
+
+function handleChatKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+}
+
+function sendSuggestion(el) {
+  document.getElementById('chat-input').value = el.textContent.trim();
+  sendChat();
+}
+
+// Renderiza markdown: headers, negrito, listas, quebras de linha
+function _renderMd(text) {
+  // Escapa HTML primeiro
+  let s = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Remove emojis — cobre os blocos Unicode mais comuns
+  s = s.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, '');
+  // Headers → negrito destacado
+  s = s.replace(/^#{1,3}\s+(.+)$/gm,
+    '<strong style="display:block;margin-top:.7rem;margin-bottom:.25rem;color:#1a3461;font-size:.88em;text-transform:uppercase;letter-spacing:.04em">$1</strong>');
+  // Negrito
+  s = s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  // Itálico
+  s = s.replace(/\*(.+?)\*/g,'<em>$1</em>');
+  // Listas com - ou *
+  s = s.replace(/^[\-\*]\s+(.+)$/gm,
+    '<span style="display:block;padding-left:1rem;margin-top:.2rem;color:#334155">— $1</span>');
+  // Listas numeradas
+  s = s.replace(/^\d+\.\s+(.+)$/gm,
+    '<span style="display:block;padding-left:1rem;margin-top:.2rem;color:#334155">$1</span>');
+  // Quebras de linha duplas → parágrafo
+  s = s.replace(/\n{2,}/g,'<br><br>').replace(/\n/g,'<br>');
+  return s;
+}
+
+async function sendChat() {
+  const input   = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('chat-send');
+  const msgs    = document.getElementById('chat-messages');
+  const message = input.value.trim();
+  if (!message) return;
+
+  // Remove sugestões após primeira mensagem
+  const sugs = document.querySelector('.chat-suggestions');
+  if (sugs) sugs.style.display = 'none';
+
+  // Exibe mensagem do usuário
+  const userDiv = document.createElement('div');
+  userDiv.className = 'chat-msg user';
+  userDiv.textContent = message;
+  msgs.appendChild(userDiv);
+  input.value = '';
+  sendBtn.disabled = true;
+
+  // Loading
+  const loadDiv = document.createElement('div');
+  loadDiv.className = 'chat-msg ai loading';
+  loadDiv.innerHTML = '<span class="chat-dots"><span>.</span><span>.</span><span>.</span></span>';
+  msgs.appendChild(loadDiv);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  // Adiciona ao histórico ANTES de enviar
+  _chatHistory.push({ role: 'user', content: message });
+
+  try {
+    const res  = await fetch('/chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        message,
+        share_id: DATA._share_id || '',
+        history:  _chatHistory.slice(0, -1),  // histórico sem a msg atual
+      }),
+    });
+    const data = await res.json();
+    const answer = data.answer || data.error || 'Sem resposta.';
+
+    // Substitui loading pela resposta renderizada
+    loadDiv.className = 'chat-msg ai';
+    loadDiv.innerHTML = _renderMd(answer);
+
+    // Adiciona resposta ao histórico
+    _chatHistory.push({ role: 'assistant', content: answer });
+
+  } catch (err) {
+    loadDiv.className = 'chat-msg ai';
+    loadDiv.textContent = 'Erro ao conectar com o assistente. Verifique a configuração da API.';
+  } finally {
+    sendBtn.disabled = false;
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+}
+</script>
+</body>
+</html>
