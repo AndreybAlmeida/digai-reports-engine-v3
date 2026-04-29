@@ -1948,21 +1948,27 @@ def chat_with_data():
             sections.append(f"Investimento total: {_fb(roi.get('investimento_total',0))} | Meses: {roi.get('n_meses','?')}")
 
         funil = data.get("funil_din") or data.get("funil", [])
-        if funil:
+        if isinstance(funil, list) and funil:
             sections.append("\n### FUNIL DE CONVERSAO")
             for e in funil:
+                if not isinstance(e, dict):
+                    continue
                 sections.append(f"  {e.get('etapa','?')}: Com={_fn(e.get('com_digai',0))} ({e.get('pct_com','?')}%) | Sem={_fn(e.get('sem_digai',0))} ({e.get('pct_sem','?')}%) | drop={e.get('dropoff_com','?')}%")
 
         tempos = data.get("tempos_din") or data.get("tempos", [])
-        if tempos:
+        if isinstance(tempos, list) and tempos:
             sections.append("\n### TEMPO MEDIO POR ETAPA (dias)")
             for t in tempos:
+                if not isinstance(t, dict):
+                    continue
                 sections.append(f"  {t.get('etapa','?')}: Com={t.get('com_digai','?')}d | Sem={t.get('sem_digai','?')}d | {t.get('impacto','?')}")
 
         status = data.get("status", [])
-        if status:
+        if isinstance(status, list) and status:
             sections.append("\n### STATUS DOS CANDIDATOS")
             for s in status:
+                if not isinstance(s, dict):
+                    continue
                 sections.append(f"  {s.get('status','?')}: Com={_fn(s.get('com_digai',0))} ({s.get('pct_com','?')}%) | Sem={_fn(s.get('sem_digai',0))} ({s.get('pct_sem','?')}%)")
 
         origem = data.get("origem_candidatos", [])
