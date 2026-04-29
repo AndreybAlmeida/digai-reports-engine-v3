@@ -312,6 +312,32 @@
 
     @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
     @media print { .btn-download,.header { position:static; } }
+
+    /* ── 7.6 Segmentação ── */
+    .seg-tab-pills { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+    .seg-tab-pill {
+      padding: 6px 18px; border-radius: 20px;
+      border: 1.5px solid var(--teal); background: transparent; color: var(--teal);
+      cursor: pointer; font-family: var(--font-sans); font-size: 13px; font-weight: 500;
+      transition: background .15s, color .15s;
+    }
+    .seg-tab-pill.active, .seg-tab-pill:hover { background: var(--teal); color: #06101f; }
+    .seg-table-wrap { overflow-x: auto; }
+    .seg-table { width:100%; border-collapse:collapse; font-size:14px; }
+    .seg-table th { text-align:left; padding:10px 14px; border-bottom:2px solid var(--border); color:var(--text-muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.5px; }
+    .seg-table td { padding:9px 14px; border-bottom:1px solid var(--border); color:var(--text); }
+    .seg-row-best td { font-weight:600; background:rgba(0,202,243,0.08); }
+    .seg-badge { font-size:11px; background:rgba(0,202,243,0.15); color:var(--teal); padding:2px 8px; border-radius:10px; margin-left:6px; white-space:nowrap; }
+
+    /* ── 7.7 Área de Negócio ── */
+    .an-bar-list { display:flex; flex-direction:column; gap:10px; }
+    .an-bar-row  { display:grid; grid-template-columns: 200px 1fr 160px; align-items:center; gap:12px; }
+    .an-bar-lbl  { font-size:13px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .an-bar-track { background:rgba(255,255,255,0.07); border-radius:6px; height:28px; position:relative; overflow:hidden; }
+    .an-bar-fill  { height:100%; background:linear-gradient(90deg, var(--teal) 0%, #0098c7 100%); border-radius:6px; display:flex; align-items:center; padding-left:8px; min-width:3%; transition:width .4s ease; }
+    .an-bar-fill span { font-size:11px; font-weight:600; color:#06101f; white-space:nowrap; }
+    .an-bar-n  { font-size:13px; color:var(--text-muted); text-align:right; white-space:nowrap; }
+    @media (max-width:640px) { .an-bar-row { grid-template-columns: 140px 1fr; } .an-bar-n { display:none; } }
   </style>
 </head>
 <body>
@@ -431,6 +457,28 @@
     </div>
   </div>
   <div class="perfil-meta-row" id="perfil-meta-row"></div>
+</div>
+
+<!-- 7.6. ANÁLISE POR SEGMENTO -->
+<div class="section-block" id="bloco-segmentacao-wrap" style="display:none">
+  <div class="section-question">Qual dimensão performa melhor?</div>
+  <div class="section-title">Análise por Segmento</div>
+  <div style="margin-bottom:1.2rem;color:var(--text-muted);font-size:0.85rem">
+    Compare o volume de contratados por área, filial, cargo e outras dimensões detectadas nos dados.
+  </div>
+  <div id="seg-tabs" class="seg-tab-pills"></div>
+  <div id="seg-table-wrap" class="seg-table-wrap"></div>
+</div>
+
+<!-- 7.7. USABILIDADE POR ÁREA DE NEGÓCIO -->
+<div class="section-block" id="bloco-area-negocio-wrap" style="display:none">
+  <div class="section-question">Onde a DigAI é mais utilizada?</div>
+  <div class="section-title">Usabilidade por Área de Negócio</div>
+  <div style="margin-bottom:1.2rem;color:var(--text-muted);font-size:0.85rem">
+    Ranking de entrevistas DigAI por área. Cargo classificado automaticamente; workspace conforme planilha DigAI.
+  </div>
+  <div id="an-tabs" class="seg-tab-pills"></div>
+  <div id="an-content"></div>
 </div>
 
 <!-- 8. MAPA DE VAGAS -->
@@ -616,6 +664,38 @@ function emptyState(icon, title, desc) {
   </div>`;
 }
 
+/* Verifica se um valor do relatório está marcado como indisponível pelo pipeline */
+function isUnavailable(v) {
+  return v && typeof v === 'object' && !Array.isArray(v) && v._unavailable;
+}
+
+/* Card de oportunidade Pipeline DigAI (substitui "indisponível" no dashboard do cliente) */
+function pipelineOpportunityCard(title, partialHtml, cta) {
+  return `<div style="border:1.5px solid var(--color-com-digai);border-radius:12px;padding:1.5rem 1.75rem;background:rgba(20,184,166,0.04)">
+    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.75rem">
+      <span style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--color-com-digai);border:1px solid var(--color-com-digai);border-radius:4px;padding:2px 7px">Oportunidade identificada</span>
+    </div>
+    <div style="font-size:1rem;font-weight:700;color:var(--color-text-primary);margin-bottom:0.5rem">${title}</div>
+    ${partialHtml ? `<div style="font-size:0.85rem;color:var(--color-text-secondary);line-height:1.6;margin-bottom:1rem">${partialHtml}</div>` : ''}
+    <a href="#" onclick="return false" style="display:inline-flex;align-items:center;gap:0.4rem;font-size:0.82rem;font-weight:600;color:var(--color-com-digai);text-decoration:none">
+      ${cta || 'Saiba mais sobre o Pipeline DigAI'} →
+    </a>
+  </div>`;
+}
+
+/* Uso interno apenas — nunca exibir ao cliente no dashboard final */
+function unavailableCard(reason) {
+  return pipelineOpportunityCard(
+    'Indicador com dados parciais',
+    reason ? reason.replace(/Para calcular .+ é necessário|A base enviada não contém|Para identificar .+ é necessário/gi, 'Com dados adicionais do ATS é possível calcular').trim() : '',
+    'Saiba mais sobre o Pipeline DigAI'
+  );
+}
+
+/* Atalhos para capabilities */
+const CAPS = (DATA.capabilities || {});
+
+
 /* badge com semântica (sem vermelho) */
 function badge(v, suffix='', flip=false) {
   if (v == null) return '—';
@@ -657,10 +737,13 @@ document.title = `DigAI — ${DATA.meta.cliente} | ${DATA.meta.periodo}`;
 
 /* ── 3. KPI CARDS — 3 tiers ── */
 (function() {
-  const com = DATA.kpis['Com DigAI'];
-  const sem = DATA.kpis['Sem DigAI'];
-  const d   = DATA.kpis.delta;
-  const roi = DATA.roi;
+  // Suporte a relatório parcial: kpis ou roi podem ser {"_unavailable": ...}
+  const kpisRaw = isUnavailable(DATA.kpis) ? {} : (DATA.kpis || {});
+  const com = kpisRaw['Com DigAI'] || {};
+  const sem = kpisRaw['Sem DigAI'] || {};
+  const d   = kpisRaw.delta       || {};
+  const roi = isUnavailable(DATA.roi) ? {} : (DATA.roi || {});
+  const hasComparison = CAPS.can_compare_groups;
 
   function kpiCard(size, label, value, deltaObj, sub) {
     const dHtml = deltaObj
@@ -681,32 +764,58 @@ document.title = `DigAI — ${DATA.meta.cliente} | ${DATA.meta.periodo}`;
   }
 
   /* Large: ROI + Contratações */
+  const roiStr = roi.roi != null ? roi.roi + 'x' : 'N/A';
+  const contSub = hasComparison
+    ? `Sem DigAI: ${fmt.num(sem.contratados)} &nbsp;·&nbsp; Total: ${fmt.num((com.contratados||0)+(sem.contratados||0))}`
+    : 'Sem grupo de controle — apenas base DigAI disponível';
   document.getElementById('kpi-row-large').innerHTML =
-    kpiCard('large', 'ROI DigAI', roi.roi + 'x', null,
+    kpiCard('large', 'ROI DigAI', roiStr, null,
       `Savings: ${fmt.brl(roi.savings)} &nbsp;·&nbsp; Investimento: ${fmt.brl(roi.investimento_total)}`) +
-    kpiCard('large', 'Contratações DigAI', fmt.num(com.contratados),
-      mkDelta(d.contratacoes, ' vs Sem DigAI'),
-      `Sem DigAI: ${fmt.num(sem.contratados)} &nbsp;·&nbsp; Total: ${fmt.num((com.contratados||0)+(sem.contratados||0))}`);
+    kpiCard('large', 'Candidatos Com DigAI', fmt.num(com.total || com.contratados),
+      hasComparison ? mkDelta(d.contratacoes, ' vs Sem DigAI') : null,
+      contSub);
 
   /* Medium: Saving + Adesão + Assertividade */
   const adesaoPct = com.adesao != null ? +(com.adesao*100).toFixed(1) : null;
+
+  // Assertividade: usa métrica nativa (contratação) se disponível, senão proxy de concordância IA
+  const assIA = (DATA.assertividade_ia && !isUnavailable(DATA.assertividade_ia)) ? DATA.assertividade_ia : null;
+  let assertLabel, assertStr, assertSub;
+  if (CAPS.can_calc_assertividade && com.assertividade != null) {
+    assertLabel = 'Assertividade';
+    assertStr   = com.assertividade + ' EI/cont.';
+    assertSub   = 'Entrevistas necessárias por contratação';
+  } else if (assIA && assIA.concordancia != null) {
+    assertLabel = 'Assertividade da IA';
+    assertStr   = assIA.concordancia + '%';
+    assertSub   = 'Concordância entre score IA e decisão do recrutador';
+  } else {
+    assertLabel = 'Assertividade da IA';
+    assertStr   = '—';
+    assertSub   = 'Disponível quando recrutadores avaliam candidatos triados';
+  }
+
   document.getElementById('kpi-row-medium').innerHTML =
     kpiCard('medium', 'Savings Acumulado', fmt.brl(roi.savings), null,
       `vs R$ ${(roi.mensalidade_digai||0).toLocaleString('pt-BR')}/mês`) +
     kpiCard('medium', 'Adesão DigAI',
       adesaoPct != null ? adesaoPct + '%' : 'N/A',
-      mkDelta(d.adesao, ' pp'),
-      '% do universo Gupy que passou pela EI') +
-    kpiCard('medium', 'Assertividade',
-      com.assertividade != null ? com.assertividade + ' EI/cont.' : 'N/A',
-      null,
-      'Entrevistas necessárias por contratação');
+      hasComparison ? mkDelta(d.adesao, ' pp') : null,
+      '% do universo que passou pela EI') +
+    kpiCard('medium', assertLabel, assertStr, null, assertSub);
 
   /* Small: SLA + Custo/EI */
-  const slaDelta = d.sla != null ? { cls: d.sla < 0 ? 'positive' : (d.sla===0?'neutral':'atencao'), text: (d.sla>0?'+':'')+d.sla.toFixed(1)+' dias vs Sem DigAI' } : null;
+  const slaVal  = CAPS.can_calc_sla
+    ? fmt.days(com.sla_media)
+    : (com.sla_media != null ? fmt.days(com.sla_media) : '—');
+  const slaSub  = CAPS.can_calc_sla
+    ? `Sem DigAI: ${fmt.days(sem.sla_media)}`
+    : 'SLA completo disponível com dados de movimentação do ATS';
+  const slaDelta = (CAPS.can_calc_sla && hasComparison && d.sla != null)
+    ? { cls: d.sla < 0 ? 'positive' : (d.sla===0?'neutral':'atencao'), text: (d.sla>0?'+':'')+d.sla.toFixed(1)+' dias vs Sem DigAI' }
+    : null;
   document.getElementById('kpi-row-small').innerHTML =
-    kpiCard('small', 'SLA Médio', fmt.days(com.sla_media), slaDelta,
-      `Sem DigAI: ${fmt.days(sem.sla_media)}`) +
+    kpiCard('small', 'SLA Médio', slaVal, slaDelta, slaSub) +
     kpiCard('small', 'Custo / Entrevista IA', fmt.brl(roi.custo_por_entrevista_ia), null,
       `vs ${fmt.brl(roi.custo_por_entrevista_ta)} (humano) — economia: ${fmt.brl(roi.economia_por_entrevista)}/EI`);
 })();
@@ -714,6 +823,16 @@ document.title = `DigAI — ${DATA.meta.cliente} | ${DATA.meta.periodo}`;
 /* ── 4. LINHA DO TEMPO ── */
 (function() {
   const wrap = document.getElementById('bloco-timeline');
+
+  if (!CAPS.can_calc_sla || isUnavailable(DATA.tempos_din) || isUnavailable(DATA.tempos)) {
+    const assIA = (DATA.assertividade_ia && !isUnavailable(DATA.assertividade_ia)) ? DATA.assertividade_ia : null;
+    const partialMsg = assIA && assIA.concordancia != null
+      ? `Já identificamos <strong>${assIA.total.toLocaleString('pt-BR')}</strong> candidatos triados pela IA com ${assIA.concordancia}% de concordância entre score IA e avaliação do recrutador. Com o Pipeline DigAI integrado ao seu ATS, você terá a linha do tempo completa do processo seletivo — da triagem à contratação.`
+      : 'Com o Pipeline DigAI integrado ao seu ATS, você terá a visão completa do processo seletivo — da triagem à contratação — com tempo por etapa e comparativo entre candidatos com e sem triagem IA.';
+    wrap.innerHTML = pipelineOpportunityCard('Linha do tempo do processo seletivo', partialMsg, 'Saiba mais sobre o Pipeline DigAI');
+    return;
+  }
+
   const tempos = DATA.tempos_din && DATA.tempos_din.length > 0 ? DATA.tempos_din : DATA.tempos;
 
   if (!tempos || tempos.length === 0) {
@@ -786,7 +905,18 @@ document.title = `DigAI — ${DATA.meta.cliente} | ${DATA.meta.periodo}`;
 /* ── 5. FUNIL DE CONVERSÃO — SVG trapézios ── */
 (function() {
   const wrap = document.getElementById('bloco-funil');
-  const fd   = DATA.funil_din && DATA.funil_din.length > 0 ? DATA.funil_din : DATA.funil;
+
+  if (!CAPS.can_calc_funil || isUnavailable(DATA.funil_din) || isUnavailable(DATA.funil)) {
+    const kpisRaw2 = isUnavailable(DATA.kpis) ? {} : (DATA.kpis || {});
+    const com2 = kpisRaw2['Com DigAI'] || {};
+    const partialMsg = com2.total
+      ? `Já temos <strong>${com2.total.toLocaleString('pt-BR')}</strong> candidatos triados pela IA. Com o Pipeline DigAI integrado ao seu ATS, você verá o funil completo — quantos avançaram em cada etapa, onde há maior drop-off e como o resultado compara com candidatos sem triagem IA.`
+      : 'Com o Pipeline DigAI integrado ao seu ATS, você terá o funil comparativo completo — da triagem à contratação — separado por candidatos com e sem triagem IA.';
+    wrap.innerHTML = pipelineOpportunityCard('Funil de conversão do processo seletivo', partialMsg, 'Saiba mais sobre o Pipeline DigAI');
+    return;
+  }
+
+  const fd = DATA.funil_din && DATA.funil_din.length > 0 ? DATA.funil_din : DATA.funil;
 
   if (!fd || fd.length === 0) {
     wrap.innerHTML = emptyState('📊','Dado não disponível','Funil requer etapas com datas no ATS.');
@@ -1067,6 +1197,128 @@ document.title = `DigAI — ${DATA.meta.cliente} | ${DATA.meta.periodo}`;
   else metaRow.style.display = 'none';
 })();
 
+/* ── 7.6. ANÁLISE POR SEGMENTO ── */
+(function() {
+  const DIM_LABELS = {
+    area: 'Área', filial: 'Filial', cargo: 'Cargo',
+    recrutador: 'Recrutador', unidade: 'Unidade de Negócio', periodo: 'Período'
+  };
+  const perfil = DATA.perfil_aprovados || {};
+  const dims = Object.keys(DIM_LABELS).filter(
+    k => Array.isArray(perfil[k]) && perfil[k].length > 0
+  );
+  if (!dims.length) return;
+
+  document.getElementById('bloco-segmentacao-wrap').style.display = '';
+  const tabsEl    = document.getElementById('seg-tabs');
+  const tableWrap = document.getElementById('seg-table-wrap');
+
+  function renderTable(dim) {
+    const items  = perfil[dim] || [];
+    const maxPct = Math.max(...items.map(i => +(i.pct || 0))) || 1;
+    tableWrap.innerHTML = `
+      <table class="seg-table">
+        <thead><tr>
+          <th>${DIM_LABELS[dim]}</th>
+          <th style="text-align:right">Candidatos</th>
+          <th style="text-align:right">Participação</th>
+        </tr></thead>
+        <tbody>
+          ${items.slice(0, 15).map(item => {
+            const val    = item[dim] != null ? item[dim] : (item.valor ?? item.label ?? '—');
+            const isBest = (+item.pct) === maxPct;
+            return `<tr class="${isBest ? 'seg-row-best' : ''}">
+              <td>${val}${isBest ? ' <span class="seg-badge">↑ maior</span>' : ''}</td>
+              <td style="text-align:right">${item.n ?? '—'}</td>
+              <td style="text-align:right">${item.pct != null ? (+item.pct).toFixed(1) + '%' : '—'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  tabsEl.innerHTML = dims.map(d =>
+    `<button class="seg-tab-pill" data-dim="${d}">${DIM_LABELS[d]}</button>`
+  ).join('');
+
+  tabsEl.querySelectorAll('.seg-tab-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabsEl.querySelectorAll('.seg-tab-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderTable(btn.dataset.dim);
+    });
+  });
+
+  tabsEl.querySelector('.seg-tab-pill').classList.add('active');
+  renderTable(dims[0]);
+})();
+
+/* ── 7.7. USABILIDADE POR ÁREA DE NEGÓCIO ── */
+(function() {
+  const an   = DATA.area_negocio || {};
+  const wrap = document.getElementById('bloco-area-negocio-wrap');
+  const tabsEl  = document.getElementById('an-tabs');
+  const content = document.getElementById('an-content');
+
+  const views = [];
+  if (an.por_area      && an.por_area.length      > 0) views.push({ key: 'por_area',      label: 'Por Classificação de Cargo' });
+  if (an.por_workspace && an.por_workspace.length > 0) views.push({ key: 'por_workspace', label: 'Por Workspace' });
+  if (!views.length) return;
+
+  wrap.style.display = '';
+  const total = an.total || 0;
+
+  function renderBars(items, keyLabel, keyN, keyPct) {
+    const maxPct = Math.max(...items.map(i => +(i[keyPct] || 0))) || 1;
+    return `
+      <div style="margin-bottom:0.5rem;color:var(--text-muted);font-size:0.8rem">
+        Total de entrevistas DigAI: <strong style="color:var(--text)">${total.toLocaleString('pt-BR')}</strong>
+      </div>
+      <div class="an-bar-list">
+        ${items.map((item, idx) => {
+          const lbl  = item[keyLabel] ?? '—';
+          const n    = item[keyN]   ?? 0;
+          const pct  = +(item[keyPct] || 0);
+          const w    = Math.max(pct / maxPct * 100, 3).toFixed(1);
+          const best = idx === 0;
+          return `
+            <div class="an-bar-row">
+              <div class="an-bar-lbl" title="${lbl}">${lbl}${best ? ' <span class="seg-badge">↑ top</span>' : ''}</div>
+              <div class="an-bar-track">
+                <div class="an-bar-fill" style="width:${w}%">
+                  <span>${pct.toFixed(1)}%</span>
+                </div>
+              </div>
+              <span class="an-bar-n">${n.toLocaleString('pt-BR')} entrevistas</span>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  function showView(key) {
+    if (key === 'por_area') {
+      content.innerHTML = renderBars(an.por_area, 'area', 'n', 'pct');
+    } else {
+      content.innerHTML = renderBars(an.por_workspace, 'workspace', 'n', 'pct');
+    }
+  }
+
+  tabsEl.innerHTML = views.map(v =>
+    `<button class="seg-tab-pill" data-key="${v.key}">${v.label}</button>`
+  ).join('');
+
+  tabsEl.querySelectorAll('.seg-tab-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabsEl.querySelectorAll('.seg-tab-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      showView(btn.dataset.key);
+    });
+  });
+
+  tabsEl.querySelector('.seg-tab-pill').classList.add('active');
+  showView(views[0].key);
+})();
+
 /* ── 8. MAPA DE VAGAS — nome completo + sortável ── */
 (function() {
   const vagas = DATA.mapa_vagas || [];
@@ -1117,6 +1369,44 @@ document.title = `DigAI — ${DATA.meta.cliente} | ${DATA.meta.periodo}`;
 
 /* ── 9. STATUS DOS CANDIDATOS + FUNIL DETALHADO ── */
 (function() {
+  const statusEl = document.getElementById('table-status');
+  const funilEl  = document.getElementById('table-funil');
+
+  if (!CAPS.can_compare_groups || isUnavailable(DATA.status)) {
+    // Sem grupo de controle — mostra distribuição de status apenas dos candidatos Com DigAI
+    const statusData = (!isUnavailable(DATA.status) && Array.isArray(DATA.status)) ? DATA.status : [];
+    const STATUS_ORDER2 = ['Contratado','Em processo','Reprovado','Desistiu','TOTAL'];
+    const sorted2 = [...statusData].sort((a,b)=>{
+      const ai=STATUS_ORDER2.indexOf(a.status), bi=STATUS_ORDER2.indexOf(b.status);
+      return (ai===-1?99:ai)-(bi===-1?99:bi);
+    });
+    if (statusEl && sorted2.length > 0) {
+      statusEl.closest('.pivot-table-wrap').innerHTML = `
+        <div style="font-size:0.78rem;color:var(--color-com-digai);font-weight:600;margin-bottom:0.75rem;text-transform:uppercase;letter-spacing:0.5px">Distribuição de status dos candidatos triados</div>
+        <table class="pivot-table" style="width:100%">
+          <thead><tr><th>Status</th><th>Candidatos</th><th>% do total</th></tr></thead>
+          <tbody>${sorted2.map(r=>`<tr class="${r.status==='TOTAL'?'total-row':''}">
+            <td style="font-weight:600">${r.status}</td>
+            <td>${fmt.num(r.com_digai)}</td>
+            <td>${fmt.pct(r.pct_com)}</td>
+          </tr>`).join('')}</tbody>
+        </table>`;
+    } else if (statusEl) {
+      statusEl.closest('.pivot-table-wrap').innerHTML = pipelineOpportunityCard(
+        'Comparativo Com/Sem DigAI',
+        'Com o Pipeline DigAI integrado ao seu ATS, você terá o comparativo de status entre candidatos com e sem triagem IA.',
+        'Saiba mais sobre o Pipeline DigAI'
+      );
+    }
+    // Funil detalhado sem grupo controle
+    if (funilEl) funilEl.closest('.pivot-table-wrap').innerHTML = pipelineOpportunityCard(
+      'Funil detalhado comparativo',
+      'O comparativo de funil por etapa requer dados de candidatos com e sem triagem IA no mesmo processo.',
+      'Saiba mais sobre o Pipeline DigAI'
+    );
+    return;
+  }
+
   const fd = DATA.funil_din && DATA.funil_din.length > 0 ? DATA.funil_din : DATA.funil;
 
   /* Status — ordem narrativa positiva: Contratado → Em processo → Reprovado → Desistiu */
@@ -1160,7 +1450,24 @@ document.title = `DigAI — ${DATA.meta.cliente} | ${DATA.meta.periodo}`;
 
 /* ── 10. SLA E TEMPO POR ETAPA — tags de impacto ── */
 (function() {
+  const tempoEl = document.getElementById('table-tempo');
+
+  if (!CAPS.can_calc_sla || isUnavailable(DATA.tempos_din) || isUnavailable(DATA.tempos)) {
+    if (tempoEl) tempoEl.closest('.pivot-table-wrap').innerHTML = pipelineOpportunityCard(
+      'Tempo por etapa do processo',
+      'Com o Pipeline DigAI integrado ao seu ATS, você verá o tempo médio em cada etapa do processo seletivo — onde estão os gargalos e como a triagem IA reduz o tempo total de contratação.',
+      'Saiba mais sobre o Pipeline DigAI'
+    );
+    return;
+  }
+
   const tempos = DATA.tempos_din && DATA.tempos_din.length > 0 ? DATA.tempos_din : DATA.tempos;
+
+  if (!tempos || !tempos.length) {
+    if (tempoEl) tempoEl.closest('.pivot-table-wrap').innerHTML =
+      emptyState('📅','SLA não calculado','Não há dados de movimentação entre etapas no período.');
+    return;
+  }
 
   function impactTag(r) {
     const com = r.com_digai, sem = r.sem_digai;

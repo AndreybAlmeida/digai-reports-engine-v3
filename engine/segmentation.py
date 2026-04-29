@@ -29,10 +29,14 @@ COM_DIGAI  = "Com DigAI"
 SEM_DIGAI  = "Sem DigAI"
 
 # Padrões de nomes de etapa que indicam contratação
-_HIRED_STAGE_RE = re.compile(
-    r"contrat(ado|ando|a[cç][aã]o)|hired|admitido|admiss[aã]o|proposta\s*aceita",
+HIRED_STATUS_PATTERNS = re.compile(
+    r"contrat(ado|ando|a[cç][aã]o)|hired|admitido|admission|ativo|ativa|"
+    r"onboard|integra[cç][aã]o|aprovado\s*final|oferta\s*aceita",
     re.IGNORECASE,
 )
+
+# Mantém alias para compatibilidade
+_HIRED_STAGE_RE = HIRED_STATUS_PATTERNS
 
 # Mapa de status Gupy → status canônico
 # IMPORTANTE: "aprovado" NÃO mapeia para "Contratado".
@@ -113,6 +117,81 @@ def _infer_data_contratacao_from_stages(df: pd.DataFrame, stage_cols: dict) -> p
             result = result.where(~mask, df[entry_col])
 
     return result
+
+
+def build_digai_only(digai_result: "DigAIResult") -> SegmentationResult:
+    """
+    Cenário 3 — apenas base DigAI, sem ATS.
+
+    Monta um DataFrame canônico a partir da base DigAI com TODOS os candidatos
+    marcados como 'Com DigAI'. Não há grupo de controle.
+    """
+    df = digai_result.df.copy()
+
+    # Canonicaliza colunas já normalizadas por load_digai_base()
+    if "nome_digai" in df.columns and "nome" not in df.columns:
+        df["nome"] = df["nome_digai"].fillna("")
+        df = df.drop(columns=["nome_digai"], errors="ignore")
+
+    if "vaga_digai" in df.columns and "vaga" not in df.columns:
+        df["vaga"] = df["vaga_digai"].fillna("")
+
+    if "data_cadastro" not in df.columns:
+        df["data_cadastro"] = df["data_ei"] if "data_ei" in df.columns else pd.NaT
+
+    for col in ("data_final", "data_contratacao"):
+        if col not in df.columns:
+            df[col] = pd.NaT
+
+    if "status" not in df.columns:
+        df["status"] = "Em processo"
+
+    if "phone" not in df.columns:
+        df["phone"] = ""
+
+    if "cpf" not in df.columns:
+        df["cpf"] = ""
+
+    if "nome" not in df.columns:
+        df["nome"] = ""
+
+    if "vaga" not in df.columns:
+        df["vaga"] = ""
+
+    if "candidato_id" not in df.columns:
+        df["candidato_id"] = [f"CAND-{i+1:06d}" for i in range(len(df))]
+
+    df["_in_digai"] = True
+    df["processo_seletivo"] = COM_DIGAI
+    df["processo_seletivo"] = df["processo_seletivo"].astype("category")
+    df["digai_realizado"] = "SIM"
+
+    _total = digai_result.total if digai_result.total > 0 else len(df)
+
+    # Enriquecimento demográfico opcional
+    try:
+        from .enrichment import enrich_dataframe
+        enrich_dataframe(df)
+    except Exception as _e:
+        print(f"   ⚠️  Enriquecimento demográfico ignorado: {_e}")
+
+    df.attrs["stage_cols"]       = {}
+    df.attrs["ei_stage_col"]     = None
+    df.attrs["strategy"]         = "DigAI only (sem ATS)"
+    df.attrs["n_stages"]         = 0
+    df.attrs["total_digai_base"] = _total
+
+    print(f"   ✅ DigAI-only: {len(df):,} candidatos | todos Com DigAI")
+
+    return SegmentationResult(
+        df               = df,
+        strategy         = "DigAI only (sem ATS)",
+        stage_cols       = {},
+        ei_stage_col     = None,
+        dims_detected    = {},
+        total_digai_base = _total,
+        digai_only       = True,
+    )
 
 
 def build_unified(
@@ -591,16 +670,16 @@ def build_unified(
     df.attrs["total_digai_base"] = _total_digai
 
     # ── 8. Segmentação Com / Sem DigAI ────────────────────────────────────────
-    # REGRA: quando a base DigAI é fornecida, a segmentação vem EXCLUSIVAMENTE
-    # do chaveamento email/phone com essa base (_in_digai = True/False).
+    # REGRA PRIMÁRIA: quando a base DigAI é fornecida, a segmentação vem do
+    # chaveamento email/phone/CPF com essa base (_in_digai = True/False).
     #
-    # A etapa "Entrevista Inteligente" do ATS (ei_stage_col) NÃO deve ser usada
-    # como critério de segmentação — em muitos clientes TODOS os candidatos passam
-    # por essa etapa no ATS independente de terem usado a triagem DigAI de fato.
-    # Usar data_ei.notna() como OR inflaria 100% para "Com DigAI".
+    # FALLBACK AUTOMÁTICO: se o join por email/phone/CPF retornar 0 matches
+    # e houver uma etapa "Entrevista Inteligente" detectada no ATS (ei_stage_col),
+    # usa essa coluna como proxy de segmentação — mas SOMENTE se a cobertura
+    # estiver entre 1% e 90% (evita casos onde todos os candidatos passam pela etapa).
     #
-    # ei_stage_col é usado SOMENTE para enriquecer data_ei (para cálculos de tempo),
-    # nunca para determinar a segmentação.
+    # ei_stage_col é também usado para enriquecer data_ei (cálculos de tempo),
+    # independentemente da estratégia de segmentação.
     if _total_digai > 0:
         com_mask = df["_in_digai"].astype(bool)
         strategy = "DigAI base (email/phone match exclusivo)"
@@ -608,6 +687,20 @@ def build_unified(
         if n_com == 0:
             print("   ⚠️  0 matches com a base DigAI — verificar formato de email/CPF em ambos os arquivos")
             print(f"   💡 ATS emails (amostra): {df[df['email'].ne('')]['email'].head(3).tolist()}")
+            # Fallback: usa etapa EI do ATS quando emails não casam
+            if ei_stage_col and ei_stage_col in df.columns:
+                _ei_mask  = df[ei_stage_col].notna()
+                _ei_count = int(_ei_mask.sum())
+                _ei_ratio = _ei_count / len(df) if len(df) > 0 else 0
+                if 0 < _ei_ratio < 0.90:
+                    com_mask = _ei_mask
+                    strategy = f"ATS EI stage (fallback — email/CPF join retornou 0 matches)"
+                    print(f"   🔄 Fallback automático ativado: coluna '{ei_stage_col}'")
+                    print(f"      → {_ei_count:,} candidatos Com DigAI ({_ei_ratio:.0%} do total)")
+                else:
+                    print(f"   ⚠️  EI stage encontrada mas cobertura {_ei_ratio:.0%} fora do intervalo seguro [1%-90%] — fallback não ativado")
+            else:
+                print("   ⚠️  Sem ei_stage_col para fallback — todos os candidatos ficam como Sem DigAI")
         elif n_com == len(df):
             print("   ⚠️  100% dos candidatos matched — base DigAI pode ter emails do ATS completo, não filtrada por cliente/período")
     elif _is_gupy_candidature and ei_stage_col and ei_stage_col in df.columns:

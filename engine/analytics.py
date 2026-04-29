@@ -582,6 +582,31 @@ def calcular_status(df: pd.DataFrame) -> list[dict]:
     return resultado
 
 
+def calcular_assertividade_ia(df: pd.DataFrame) -> dict:
+    """
+    Concordância entre o score da IA e a decisão do recrutador.
+    Proxy de assertividade para Tier 3 (sem dados de contratação).
+
+    score_editado=True → recrutador sobrescreveu o score.
+    Concordância = % que NÃO foram editados.
+    """
+    com = df[df["processo_seletivo"] == COM_DIGAI] if "processo_seletivo" in df.columns else df
+    total = len(com)
+
+    if total == 0 or "score_editado" not in com.columns:
+        return {"concordancia": None, "total": total, "editados": 0, "sem_dados": True}
+
+    editados = int(com["score_editado"].fillna(False).astype(bool).sum())
+    concordancia = round((1 - editados / total) * 100, 1) if total > 0 else None
+
+    return {
+        "concordancia": concordancia,
+        "total": total,
+        "editados": editados,
+        "sem_dados": concordancia is None,
+    }
+
+
 # ─── Diagnóstico de Qualidade (LOGICA_CRUZAMENTO PASSO 7) ─────────────────────
 
 def diagnostico_qualidade(df: pd.DataFrame) -> list[str]:
@@ -665,9 +690,31 @@ def diagnostico_qualidade(df: pd.DataFrame) -> list[str]:
 
 def gerar_insights(kpis: dict, roi: dict) -> dict:
     """Gera veredicto e pontos de atenção baseados nos números."""
+    if not kpis or "_unavailable" in kpis or COM_DIGAI not in kpis:
+        return {
+            "veredicto": "ℹ️ DADOS PARCIAIS",
+            "cor_veredicto": "#94A3B8",
+            "pontos_positivos": [],
+            "pontos_atencao": ["Relatório gerado apenas com a base DigAI — dados comparativos não disponíveis."],
+        }
     com = kpis[COM_DIGAI]
-    sem = kpis[SEM_DIGAI]
-    delta = kpis["delta"]
+    sem = kpis.get(SEM_DIGAI, {})
+    delta = kpis.get("delta", {})
+
+    # Sem grupo de controle (sem Sem DigAI): insights limitados
+    if not sem or sem.get("total", 0) == 0:
+        pontos = []
+        if roi and roi.get("roi", 0) >= 2:
+            pontos.append(f"ROI estimado de {roi.get('roi',0):.0f}x — savings de R$ {roi.get('savings',0):,.2f} no período")
+        total_ei = com.get("total", 0)
+        if total_ei:
+            pontos.append(f"{total_ei:,} candidatos entrevistados pela DigAI no período")
+        return {
+            "veredicto": "✅ BASE DIGAI PROCESSADA",
+            "cor_veredicto": "#20BD5A",
+            "pontos_positivos": pontos,
+            "pontos_atencao": ["Sem grupo de controle — envie o Step Funnel do ATS para comparativos completos."],
+        }
 
     pontos_positivos = []
     pontos_atencao   = []
@@ -692,25 +739,30 @@ def gerar_insights(kpis: dict, roi: dict) -> dict:
                 f"Assertividade inferior com DigAI ({_assert_com:.1f} EI/contratado vs {_assert_sem:.1f})"
             )
 
-    # SLA
-    if delta["sla"] < 0:
-        pontos_positivos.append(
-            f"SLA {abs(delta['sla']):.1f} dias mais rápido com DigAI "
-            f"({com['sla_media']} vs {sem['sla_media']} dias)"
-        )
-    else:
-        pontos_atencao.append(
-            f"SLA {delta['sla']:+.1f} dias mais lento com DigAI"
-        )
+    # SLA — só compara quando há grupo de controle com SLA calculado
+    _sla_delta = delta.get("sla", 0) or 0
+    _sem_sla   = sem.get("sla_media")
+    _com_sla   = com.get("sla_media")
+    if _com_sla is not None and _sem_sla is not None:
+        if _sla_delta < 0:
+            pontos_positivos.append(
+                f"SLA {abs(_sla_delta):.1f} dias mais rápido com DigAI "
+                f"({_com_sla} vs {_sem_sla} dias)"
+            )
+        elif _sla_delta > 0:
+            pontos_atencao.append(
+                f"SLA {_sla_delta:+.1f} dias mais lento com DigAI"
+            )
 
     # Adesão
-    if delta["adesao"] < 0:
+    _adesao_delta = delta.get("adesao", 0) or 0
+    if _adesao_delta < 0:
         pontos_atencao.append(
-            f"Adesão menor com DigAI ({delta['adesao']:+.1f} pp) — mais candidatos desistem na EI"
+            f"Adesão menor com DigAI ({_adesao_delta:+.1f} pp) — mais candidatos desistem na EI"
         )
-    else:
+    elif _adesao_delta > 0:
         pontos_positivos.append(
-            f"Adesão {delta['adesao']:+.1f} pp maior com DigAI"
+            f"Adesão {_adesao_delta:+.1f} pp maior com DigAI"
         )
 
     # ROI
@@ -748,6 +800,7 @@ def calcular_funil_dinamico(df: pd.DataFrame) -> list[dict]:
     """
     stage_cols = df.attrs.get("stage_cols", {})
     if not stage_cols:
+        print("   Nenhuma etapa de processo detectada — SLA por etapa nao disponivel")
         return calcular_funil(df)  # fallback
 
     funil = []
@@ -827,6 +880,7 @@ def calcular_tempo_dinamico(df: pd.DataFrame) -> list[dict]:
     """
     stage_cols = df.attrs.get("stage_cols", {})
     if not stage_cols:
+        print("   Nenhuma etapa de processo detectada — SLA por etapa nao disponivel")
         return calcular_tempo_por_etapa(df)
 
     tempos = []
@@ -1009,6 +1063,10 @@ def gerar_narrativa(kpis: dict, roi: dict, meta: dict) -> dict:
     Retorna headline, destaques, oportunidades e historia (parágrafo).
     Baseado 100% nos dados do cliente — sem benchmarks externos.
     """
+    if not kpis or "_unavailable" in kpis:
+        kpis = {}
+    if not roi or "_unavailable" in roi:
+        roi = {}
     com   = kpis.get(COM_DIGAI, {})
     sem   = kpis.get(SEM_DIGAI, {})
     delta = kpis.get("delta", {})

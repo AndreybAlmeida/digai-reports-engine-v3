@@ -18,6 +18,16 @@ from dataclasses import dataclass, field
 from typing import Optional
 import pandas as pd
 
+# Mensagens padrão de insuficiência de dados (exibidas no dashboard)
+_MSG = {
+    "funil":         "Para calcular o funil detalhado é necessário um relatório de etapas do processo seletivo (Step Funnel ou equivalente).",
+    "sla":           "Para calcular SLA é necessário receber uma base com data de entrada, movimentações entre etapas e data de contratação.",
+    "assertividade": "Para calcular assertividade é necessário receber dados de avanço, aprovação ou contratação por etapa.",
+    "comparativo":   "Indicador comparativo indisponível: a base enviada não contém candidatos sem DigAI para comparação.",
+    "timeline":      "Análise de SLA por etapa requer datas de movimentação no ATS.",
+    "contratacoes":  "Para identificar contratações é necessário o relatório de contratações ou o Step Funnel com status por etapa.",
+}
+
 
 @dataclass
 class IngestionResult:
@@ -106,6 +116,9 @@ class SegmentationResult:
             return 0
         return int((self.df["processo_seletivo"] == "Sem DigAI").sum())
 
+    # True quando o relatório foi gerado só com a base DigAI (sem ATS)
+    digai_only: bool = False
+
     def validate(self) -> list[str]:
         """
         Retorna lista de erros e avisos do resultado de segmentação.
@@ -121,18 +134,24 @@ class SegmentationResult:
 
         # ── Segmentação Com/Sem DigAI ─────────────────────────────────────────
         if self.n_com_digai == 0:
+            # 0 Com DigAI = o cruzamento de emails não encontrou matches.
+            # Rebaixado para WARNING: o relatório ainda é gerado (todos Sem DigAI),
+            # mas o dashboard mostrará o alerta de qualidade.
+            # Não bloquear: arquivos podem ser de períodos/clientes diferentes
+            # ou ter encoding de email diferente — o usuário deve revisar.
             errors.append(
-                f"❌ CRÍTICO: nenhum candidato identificado como Com DigAI "
+                f"⚠️ Nenhum candidato identificado como Com DigAI "
                 f"(estratégia: {self.strategy or 'desconhecida'}). "
-                "Verifique se os arquivos são do mesmo período e cliente, "
-                "e se os emails do funil coincidem com os da base DigAI."
+                "Verifique se os arquivos são do mesmo período e cliente "
+                "e se os emails do funil coincidem com os da base DigAI. "
+                "O relatório foi gerado mas pode estar incompleto."
             )
-        if self.n_sem_digai == 0:
+        if self.n_sem_digai == 0 and not self.digai_only:
             errors.append(
                 "⚠️ Todos os candidatos estão no grupo Com DigAI — sem grupo de controle."
             )
         ratio_com = self.n_com_digai / n_total if n_total > 0 else 0
-        if ratio_com > 0.99 and n_total > 10:
+        if ratio_com > 0.99 and n_total > 10 and not self.digai_only:
             errors.append(
                 f"⚠️ {ratio_com:.0%} dos candidatos estão em Com DigAI — "
                 "verifique se a base DigAI está filtrada pelo período e cliente corretos."
@@ -191,3 +210,55 @@ class SegmentationResult:
                 )
 
         return errors
+
+
+@dataclass
+class DataCapabilities:
+    """
+    Descreve quais KPIs estão disponíveis com base nas fontes de dados fornecidas.
+    Injetado no relatório como 'capabilities' e consumido pelo dashboard e pelo pipeline.
+
+    Cenários:
+      digai_only        — apenas base DigAI (Cenário 3)
+      digai_hired       — DigAI + base de contratações (Cenário 2)
+      digai_ats_full    — DigAI + Step Funnel completo (Cenário 1)
+      digai_ats_partial — DigAI + ATS parcial sem etapas completas (Cenário 4)
+    """
+    scenario: str = "digai_only"
+
+    # Fontes disponíveis
+    has_funnel: bool = False
+    has_candidatura: bool = False
+    has_stage_cols: bool = False
+    has_comparison_group: bool = False  # Tem candidatos Sem DigAI
+
+    # KPIs disponíveis
+    can_calc_funil: bool = False
+    can_calc_sla: bool = False
+    can_calc_assertividade: bool = False
+    can_calc_roi: bool = True
+    can_calc_saving: bool = True
+    can_compare_groups: bool = False
+    can_calc_conversion: bool = False
+    can_calc_hired: bool = False
+
+    # Motivos de indisponibilidade (chave = nome do KPI, valor = mensagem)
+    unavailable: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {
+            "scenario":               self.scenario,
+            "has_funnel":             self.has_funnel,
+            "has_candidatura":        self.has_candidatura,
+            "has_stage_cols":         self.has_stage_cols,
+            "has_comparison_group":   self.has_comparison_group,
+            "can_calc_funil":         self.can_calc_funil,
+            "can_calc_sla":           self.can_calc_sla,
+            "can_calc_assertividade": self.can_calc_assertividade,
+            "can_calc_roi":           self.can_calc_roi,
+            "can_calc_saving":        self.can_calc_saving,
+            "can_compare_groups":     self.can_compare_groups,
+            "can_calc_conversion":    self.can_calc_conversion,
+            "can_calc_hired":         self.can_calc_hired,
+            "unavailable":            self.unavailable,
+        }

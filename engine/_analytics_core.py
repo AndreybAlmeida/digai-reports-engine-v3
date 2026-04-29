@@ -654,6 +654,117 @@ def calcular_status(df: pd.DataFrame) -> list[dict]:
     return resultado
 
 
+def calcular_assertividade_ia(df: pd.DataFrame) -> dict:
+    """
+    Concordância entre o score da IA e a decisão do recrutador.
+    Proxy de assertividade para Tier 3 (sem dados de contratação).
+
+    score_editado=True → recrutador sobrescreveu o score.
+    Concordância = % que NÃO foram editados.
+    """
+    com = df[df["processo_seletivo"] == COM_DIGAI] if "processo_seletivo" in df.columns else df
+    total = len(com)
+
+    if total == 0 or "score_editado" not in com.columns:
+        return {"concordancia": None, "total": total, "editados": 0, "sem_dados": True}
+
+    editados = int(com["score_editado"].fillna(False).astype(bool).sum())
+    concordancia = round((1 - editados / total) * 100, 1) if total > 0 else None
+
+    return {
+        "concordancia": concordancia,
+        "total": total,
+        "editados": editados,
+        "sem_dados": concordancia is None,
+    }
+
+
+# ─── Usabilidade por Área de Negócio ──────────────────────────────────────────
+
+_AREA_NEGOCIO_KEYWORDS: dict[str, list[str]] = {
+    "Comercial":      ["comercial", "vend", "representante", "promotor", "executivo de conta",
+                       "account", "inside sales", "pré-venda", "pre-venda", "sdr", "bdr", "closer",
+                       "captação", "relacionamento com client"],
+    "Operacional":    ["operador", "montador", "separador", "motorista", "entregador",
+                       "logística", "almox", "estoquista", "produção", "industrial",
+                       "manufactur", "operação", "conferente", "expedição"],
+    "Administrativo": ["administrat", "financeiro", "contab", "controller", "fiscal",
+                       "tesourar", "compras", "jurídic", "legal", "secretar", "recepcionist",
+                       "facilities", "backoffice", "back-office", "controladoria"],
+    "Tecnologia":     ["desenvolved", "developer", "software", "programador", "dados", "data ",
+                       "analista de sistem", "devops", "infra", "cloud", "segurança da inform",
+                       " bi ", "inteligência artific", "ciência de dado", "machine learning",
+                       "ti ", "tecnologia da inform"],
+    "RH / Pessoas":   ["recursos humanos", " rh ", "recrutam", "seleção", "treinam",
+                       "dho", "gente e", "people", "hrbp", "employer"],
+    "Estratégico":    ["gerente", "diretor", "coordenador", "gestor", "head ", "supervisor",
+                       "líder", "manager", "ceo", "coo", "cfo", "cto", "vp ", "vice-president"],
+    "Negócios":       ["negócios", "business", "projetos", "processos", "qualidade",
+                       "inovaç", "produto", "marketing", "growth", "estratégia", "planejamento"],
+    "Saúde":          ["médico", "enfermeiro", "farmacêutico", "nutricionista", "psicólogo",
+                       "fisioterapeuta", "dentista", "saúde", "clínico", "técnico de enferma"],
+    "Educação":       ["professor", "docente", "educador", "instrutor", "pedagog", "tutor"],
+}
+
+
+def _classificar_area_negocio(titulo: str) -> str:
+    tl = f" {titulo.lower()} "
+    for area, kws in _AREA_NEGOCIO_KEYWORDS.items():
+        if any(kw in tl for kw in kws):
+            return area
+    return "Outros"
+
+
+def calcular_area_negocio(df: pd.DataFrame) -> dict:
+    """
+    Agrupa entrevistas DigAI por área de negócio (classificação automática de cargo/vaga)
+    e por workspace (coluna direta da planilha DigAI).
+
+    Retorna:
+        {
+          "por_area":      [{area, n, pct}, ...],   # classificação por cargo/vaga
+          "por_workspace": [{workspace, n, pct}, ...],
+          "total":         int,
+        }
+    """
+    com = df[df["processo_seletivo"] == COM_DIGAI].copy() if "processo_seletivo" in df.columns else df.copy()
+
+    result: dict = {"por_area": [], "por_workspace": [], "total": len(com)}
+
+    if com.empty:
+        return result
+
+    # ── Por área (classificação de cargo/vaga) ──────────────────────────────
+    vaga_col = next(
+        (c for c in ("vaga", "vaga_cand", "Nome da vaga", "vaga_digai", "cargo") if c in com.columns),
+        None,
+    )
+    if vaga_col:
+        area_counts: dict[str, int] = {}
+        for vaga, grp in com.groupby(vaga_col, observed=True):
+            if not vaga or pd.isna(vaga):
+                continue
+            area = _classificar_area_negocio(str(vaga))
+            area_counts[area] = area_counts.get(area, 0) + len(grp)
+        total_area = sum(area_counts.values()) or 1
+        result["por_area"] = sorted(
+            [{"area": k, "n": v, "pct": round(v / total_area * 100, 1)} for k, v in area_counts.items()],
+            key=lambda x: x["n"],
+            reverse=True,
+        )
+
+    # ── Por workspace ────────────────────────────────────────────────────────
+    if "workspace" in com.columns:
+        ws_counts = com["workspace"].dropna().value_counts()
+        total_ws = int(ws_counts.sum()) or 1
+        result["por_workspace"] = [
+            {"workspace": str(k), "n": int(v), "pct": round(int(v) / total_ws * 100, 1)}
+            for k, v in ws_counts.items()
+        ]
+
+    return result
+
+
 # ─── Diagnóstico de Qualidade (LOGICA_CRUZAMENTO PASSO 7) ─────────────────────
 
 def diagnostico_qualidade(df: pd.DataFrame) -> list[str]:

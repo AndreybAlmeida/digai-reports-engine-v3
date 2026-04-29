@@ -47,6 +47,8 @@ from engine._analytics_core import (  # noqa: F401
 
     # Status dos candidatos
     calcular_status,
+    calcular_assertividade_ia,
+    calcular_area_negocio,
 
     # Qualidade de dados
     diagnostico_qualidade,
@@ -75,7 +77,7 @@ __all__ = [
     "calcular_origem_candidatos",
     "calcular_funil", "calcular_funil_dinamico",
     "calcular_tempo_por_etapa", "calcular_tempo_dinamico",
-    "calcular_status",
+    "calcular_status", "calcular_assertividade_ia", "calcular_area_negocio",
     "diagnostico_qualidade", "analisar_qualidade",
     "gerar_insights",
     "gerar_narrativa", "calcular_mapa_vagas", "calcular_periodo_comparativo",

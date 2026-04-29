@@ -126,24 +126,49 @@ def _to_date(series: pd.Series) -> pd.Series:
 
 # Padrões semânticos: chave → lista de regex que matcham o nome da coluna
 SEMANTIC_PATTERNS = {
-    "email":          [r"e[-_]?mail", r"^email$"],
-    "phone":          [r"celular", r"telefone", r"phone", r"fone", r"cel\b"],
-    "cpf":            [r"^cpf$"],
-    "nome":           [r"nome\s*do\s*candidato", r"candidato\s*nome", r"^nome$", r"^candidato$", r"\bname\b"],
-    "vaga":           [r"nome\s*da\s*vaga", r"vaga", r"job\s*name", r"position", r"cargo\s*vaga"],
-    "cargo":          [r"^cargo$", r"^func[aã]o$", r"^posi[cç][aã]o$", r"role"],
-    "area":           [r"[aá]rea\s*da\s*vaga", r"[aá]rea\s*do\s*processo", r"department", r"^[aá]rea$"],
-    "filial":         [r"filial", r"unidade", r"localidade", r"branch", r"site"],
-    "recrutador":     [r"respons[aá]vel", r"recrut", r"owner", r"gestor"],
-    "status":         [r"status\s*na\s*vaga", r"status\s*do\s*candidato", r"^status$", r"situa[cç][aã]o"],
-    "etapa_atual":    [r"etapa\s*atual", r"current\s*stage", r"fase\s*atual"],
-    "data_cadastro":  [r"data\s*de\s*inscri[cç][aã]o", r"data\s*inscri[cç][aã]o", r"applied[\s_]?at",
-                       r"data\s*cadastro", r"created[\s_]?at", r"data\s*entrada"],
-    "data_final":     [r"data\s*final", r"data\s*(de\s*)?(reprova|contrat|desist)", r"final[\s_]?date"],
-    "data_contratacao": [r"data\s*de\s*movimenta[cç][aã]o\s*para\s*contrata",
-                          r"data\s*(informada\s*de\s*)?contrata[cç][aã]o",
-                          r"hire[\s_]?date", r"data\s*admiss[aã]o",
-                          r"hired[\s_]?at"],
+    "email": [
+        r"e[-_]?mail", r"^email$", r"e-mail\s*do\s*candidato",
+        r"endere[cç]o\s*de\s*e-?mail", r"email\s*address", r"user\s*email",
+        r"contact\s*email", r"candidate\s*email",
+    ],
+    "phone": [
+        r"celular", r"telefone", r"phone", r"fone", r"cel\b",
+        r"mobile", r"whatsapp", r"contato\s*telef", r"n[uú]mero\s*de\s*telefone",
+        r"tel\b", r"phone\s*number",
+    ],
+    "cpf": [
+        r"^cpf$", r"cpf\s*do\s*candidato", r"documento\s*cpf",
+        r"n[uú]mero\s*do\s*cpf", r"tax\s*id",
+    ],
+    "nome": [
+        r"nome\s*do\s*candidato", r"candidato\s*nome", r"^nome$",
+        r"^candidato$", r"\bname\b", r"nome\s*completo", r"full\s*name",
+        r"candidate\s*name",
+    ],
+    "vaga": [r"nome\s*da\s*vaga", r"vaga", r"job\s*name", r"position", r"cargo\s*vaga"],
+    "cargo": [r"^cargo$", r"^func[aã]o$", r"^posi[cç][aã]o$", r"role"],
+    "area": [r"[aá]rea\s*da\s*vaga", r"[aá]rea\s*do\s*processo", r"department", r"^[aá]rea$"],
+    "filial": [r"filial", r"unidade", r"localidade", r"branch", r"site"],
+    "recrutador": [r"respons[aá]vel", r"recrut", r"owner", r"gestor"],
+    "status": [
+        r"status\s*na\s*vaga", r"status\s*do\s*candidato", r"^status$",
+        r"situa[cç][aã]o", r"status\s*atual",  # ← FIX CRÍTICO: multi-ATS
+        r"current\s*status", r"stage\s*status",
+        r"candidature\s*status", r"outcome", r"resultado",
+    ],
+    "etapa_atual": [r"etapa\s*atual", r"current\s*stage", r"fase\s*atual"],
+    "data_cadastro": [
+        r"data\s*de\s*inscri[cç][aã]o", r"data\s*inscri[cç][aã]o", r"applied[\s_]?at",
+        r"data\s*cadastro", r"created[\s_]?at", r"data\s*entrada",
+    ],
+    "data_final": [r"data\s*final", r"data\s*(de\s*)?(reprova|contrat|desist)", r"final[\s_]?date"],
+    "data_contratacao": [
+        r"data\s*de\s*movimenta[cç][aã]o\s*para\s*contrata",
+        r"data\s*(informada\s*de\s*)?contrata[cç][aã]o",
+        r"hire[\s_]?date", r"data\s*admiss[aã]o",
+        r"hired[\s_]?at", r"data\s*de\s*admiss[aã]o",
+        r"admission\s*date", r"start\s*date",
+    ],
 }
 
 # Wildcard para detectar etapa Entrevista Inteligente (DigAI no Gupy)
@@ -159,6 +184,29 @@ def _find_col(df: pd.DataFrame, semantic_key: str) -> Optional[str]:
         col_lower = col.strip().lower()
         for pat in patterns:
             if re.search(pat, col_lower, re.IGNORECASE):
+                return col
+    return None
+
+
+def _detect_by_content(df: pd.DataFrame, semantic_key: str) -> Optional[str]:
+    """
+    Detecta coluna pelo conteúdo quando header semântico não bate.
+    Tentativa 2 da arquitetura de detecção (após SEMANTIC_PATTERNS).
+    """
+    if semantic_key == "email":
+        for col in df.columns:
+            sample = df[col].dropna().astype(str).head(50)
+            if sample.str.contains(r"@.+\.", regex=True).mean() >= 0.5:
+                return col
+    elif semantic_key == "phone":
+        for col in df.columns:
+            sample = df[col].dropna().astype(str).head(50)
+            if sample.str.replace(r"\D", "", regex=True).str.len().between(10, 13).mean() >= 0.6:
+                return col
+    elif semantic_key == "cpf":
+        for col in df.columns:
+            sample = df[col].dropna().astype(str).head(50)
+            if sample.str.replace(r"\D", "", regex=True).str.len().eq(11).mean() >= 0.7:
                 return col
     return None
 
@@ -228,6 +276,15 @@ def load_pipeline(path: str) -> pd.DataFrame:
         col = _find_col(df, semantic_key)
         if col and col not in rename:
             rename[col] = semantic_key
+
+    # ── Fallback: detecção por conteúdo (Tentativa 2) ────────────────────────
+    # Se header semântico não encontrou, tenta detectar pelo conteúdo
+    for key, target in [("email", "email"), ("phone", "phone"), ("cpf", "cpf")]:
+        if target not in rename:
+            col = _detect_by_content(df, key)
+            if col and col not in rename:
+                rename[col] = target
+                print(f"   🔍 Deteccao por conteudo: coluna '{col}' → {key}")
 
     df = df.rename(columns=rename)
 
@@ -561,6 +618,14 @@ def load_digai_base(path: str) -> "DigAIResult":
             if re.search(r"(applied|entrevista\s+ia|entrevistadigai|interviewdate|dataei\b)", c, re.IGNORECASE):
                 rename[c] = "data_ei_raw"
                 break
+
+    # ── Fallback: detecção por conteúdo (Tentativa 2) ────────────────────────
+    for key, target in [("email", "email_raw"), ("phone", "phone_raw"), ("cpf", "cpf_raw")]:
+        if target not in rename.values():
+            col = _detect_by_content(df, key)
+            if col and col not in rename:
+                rename[col] = target
+                print(f"   🔍 Deteccao por conteudo (DigAI): coluna '{col}' → {key}")
 
     df = df.rename(columns=rename)
 

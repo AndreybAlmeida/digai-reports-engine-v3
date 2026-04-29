@@ -429,7 +429,7 @@ PAGE = """<!DOCTYPE html>
 
 <main>
   <h2>Gerador de Relatórios</h2>
-  <p class="sub">Faça upload dos arquivos exportados do Gupy e da base DigAI. O relatório será gerado automaticamente.</p>
+  <p class="sub">Faça upload da base DigAI e, opcionalmente, do relatório de etapas do ATS. O relatório é gerado com os dados disponíveis.</p>
 
   <form id="form">
 
@@ -437,19 +437,20 @@ PAGE = """<!DOCTYPE html>
     <div class="card">
       <div class="card-title">📂 Arquivos de Dados</div>
       <p style="font-size:0.78rem;color:var(--muted);margin-bottom:1rem">
-        Funciona com <strong style="color:var(--text)">qualquer ATS</strong> — Gupy, Kenoby, Breezy, Greenhouse, etc.
-        A segmentação Com/Sem DigAI é feita sempre pelo chaveamento com a base DigAI (email/telefone).
+        A <strong style="color:var(--text)">base DigAI</strong> é o único arquivo obrigatório.
+        Funciona com <strong style="color:var(--text)">qualquer ATS</strong> — Gupy, Kenoby, Breezy, Greenhouse, etc. —
+        ou sem ATS. Quanto mais dados disponíveis, mais completo o relatório.
       </p>
       <div class="form-grid">
-        <div class="field">
+        <div class="field optional">
           <label>Relatório de Etapas do Processo</label>
           <div class="file-drop-area" onclick="document.getElementById('inp-funnel').click()">
-            <input type="file" id="inp-funnel" name="funnel" accept=".csv,.xlsx,.xls" multiple required/>
+            <input type="file" id="inp-funnel" name="funnel" accept=".csv,.xlsx,.xls" multiple/>
             <span class="file-drop-label" id="lbl-funnel">Nenhum arquivo selecionado</span>
             <span class="file-drop-btn">Selecionar</span>
           </div>
           <div class="file-tags" id="tags-funnel"></div>
-          <span class="hint">Um ou mais arquivos · Export do ATS com etapas, status e datas</span>
+          <span class="hint">Um ou mais arquivos · Export do ATS com etapas, status e datas · habilita SLA, funil e assertividade</span>
         </div>
         <div class="field optional">
           <label>Relatório de Candidaturas (complementar)</label>
@@ -462,7 +463,7 @@ PAGE = """<!DOCTYPE html>
           <span class="hint">Um ou mais arquivos · telefone/email dos candidatos</span>
         </div>
         <div class="field">
-          <label>Base DigAI — Entrevistas Realizadas</label>
+          <label>Base DigAI — Entrevistas Realizadas ✱</label>
           <div class="file-drop-area" onclick="document.getElementById('inp-digai').click()">
             <input type="file" id="inp-digai" name="digai" accept=".csv,.xlsx,.xls" multiple required/>
             <span class="file-drop-label" id="lbl-digai">Nenhum arquivo selecionado</span>
@@ -1233,10 +1234,9 @@ def gerar():
         candidatura_path = merge_upload_files(cand_paths,   "candidatura", tmp_dir)
         digai_path       = merge_upload_files(digai_paths,  "digai",       tmp_dir)
 
-        if not funnel_path:
-            return jsonify({"error": "Arquivo do Gupy Steps Funnel é obrigatório."}), 400
+        # Apenas a base DigAI é obrigatória — funil e candidatura são opcionais
         if not digai_path:
-            return jsonify({"error": "Base DigAI é obrigatória."}), 400
+            return jsonify({"error": "Base DigAI é obrigatória. Envie o export da plataforma DigAI com as entrevistas realizadas."}), 400
 
         # ── Parâmetros ────────────────────────────────────────────────────────
         periodo_str = request.form.get("periodo", "")
@@ -1275,11 +1275,12 @@ def gerar():
             params["logo_url"] = f"data:{mime};base64,{b64}"
 
         # ── Gerar relatório via orquestrador central ──────────────────────────
+        # Nova assinatura v3: digai_path obrigatório, funnel_path opcional
         from engine.analytics import analisar_qualidade
         relatorio, _pipeline_df = _pipeline_run(
+            digai_path=digai_path,
             funnel_path=funnel_path,
             candidatura_path=candidatura_path,
-            digai_path=digai_path,
             params=params,
             session_id=session_id,
         )
@@ -1452,11 +1453,15 @@ def gerar():
         _cleanup_dir(tmp_dir, delay=2)
 
         # ── Resposta ──────────────────────────────────────────────────────────
-        kpis = relatorio["kpis"]
-        roi  = relatorio["roi"]
-        com  = kpis.get("Com DigAI", {})
+        kpis = relatorio.get("kpis") or {}
+        roi  = relatorio.get("roi")  or {}
+        # kpis pode ser {"_unavailable": ...} quando cenário 3 sem comparativo
+        if isinstance(kpis, dict) and "_unavailable" in kpis:
+            com = {}
+        else:
+            com = kpis.get("Com DigAI", {})
 
-        saving = roi.get("savings", 0)
+        saving = roi.get("savings", 0) or 0
         if saving >= 1_000_000:
             saving_fmt = f"{saving/1_000_000:.1f}M"
         elif saving >= 1_000:
